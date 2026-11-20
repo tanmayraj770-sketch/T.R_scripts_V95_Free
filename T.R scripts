@@ -14493,8 +14493,76 @@ table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gp
 					local tRoot = GetRootPart(targetPlr.Character) if tRoot then local pos = tRoot.Position
 						SafeTeleportToCoords(pos.X, pos.Y + 3, pos.Z) end end end end end end))
 -- Close, Re-Execution Cleanup & Full Shutdown Handler
+local function ResetCharacterPhysicsCleanly()
+	pcall(function()
+		local char = player.Character
+		if not char then return end
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local root = GetRootPart(char)
+		for _, part in ipairs(char:GetDescendants()) do
+			if part:IsA("BasePart") then
+				if part:FindFirstAncestorOfClass("Accessory") or part:FindFirstAncestorOfClass("Tool") then
+					part.CanCollide = false
+				elseif part.Name == "HumanoidRootPart" or part.Name == "Head" or part.Name == "Torso" or part.Name == "UpperTorso" or part.Name == "LowerTorso" then
+					part.CanCollide = true
+				else
+					part.CanCollide = false
+				end
+				part.Massless = (part:FindFirstAncestorOfClass("Accessory") ~= nil)
+				part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+				part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+			elseif part:IsA("BodyVelocity") or part:IsA("BodyGyro") or part:IsA("BodyPosition") or part:IsA("AlignPosition") or part:IsA("AlignOrientation") or part:IsA("LinearVelocity") or part:IsA("AngularVelocity") then
+				if part.Name:find("TR_") then part:Destroy() end
+			end
+		end
+		if root then
+			root.Anchored = false
+			local _, yaw, _ = root.CFrame:ToEulerAnglesYXZ()
+			root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, yaw, 0)
+			root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+			root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+		end
+		if hum then
+			hum.PlatformStand = false
+			hum.Sit = false
+			hum.AutoRotate = true
+			hum.CameraOffset = Vector3.new(0, 0, 0)
+			if RestoreNaturalHumanoidDefaults then
+				RestoreNaturalHumanoidDefaults()
+			else
+				hum.WalkSpeed = 16
+				hum.JumpPower = 50
+			end
+			hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+			hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+			task.defer(function()
+				if hum and hum.Parent and hum.Health > 0 then
+					hum:ChangeState(Enum.HumanoidStateType.Running)
+				end
+			end)
+			if workspace.CurrentCamera then
+				workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+				workspace.CurrentCamera.CameraSubject = hum
+			end
+		end
+	end)
+end
 local function ShutdownInstance(immediate) if isClosingPermanently then return end
+	isClosingPermanently = true
 	FlingActive, aimbotEnabled, targetAimbotEnabled, autoShootMasterEnabled, autoShootEnabled, aimbotAutoShootEnabled, currentTarget, masterFlightEnabled = false, false, false, false, false, false, nil, false
+	Config.NoclipEnabled = false
+	Config.MasterUtilityEnabled = false
+	Config.SpiderClimb = false
+	Config.InfiniteJump = false
+	Config.ItemMagnetEnabled = false
+	Config.FullbrightEnabled = false
+	Config.NoFogEnabled = false
+	freezePosition = nil
+	lastSafeAntiFlingCF = nil
 	if StopAutoShootFiring then pcall(StopAutoShootFiring) end
 	pcall(function() game:GetService("ContextActionService"):UnbindAction("TR_KatanaClickBlock") end)
 	if SetStickTarget then pcall(SetStickTarget, nil) end
@@ -14504,40 +14572,44 @@ local function ShutdownInstance(immediate) if isClosingPermanently then return e
 	if genv.__LocalWearerCleanup then pcall(genv.__LocalWearerCleanup) end
 	for _, thread in ipairs(RunningExecutorThreads) do pcall(function() task.cancel(thread) end) end
 	RunningExecutorThreads = {} pcall(function() SetMouseLockState(false) end)
+	pcall(function()
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		if userGameSettings then userGameSettings.RotationType = Enum.RotationType.MovementRelative end
+	end)
 	SpectatingTarget, ActiveKeybindCaptureCallback = nil, nil
 	pcall(function() RunService:UnbindFromRenderStep("Aimbot_v2") end)
 	pcall(function() RunService:UnbindFromRenderStep("TR_ShiftLock_Pre") end)
 	pcall(function() RunService:UnbindFromRenderStep("TR_Freecam_Step") end)
 	pcall(function() RunService:UnbindFromRenderStep("TR_Spectate_Step") end)
-	pcall(function() RunService:UnbindFromRenderStep("TR_Freecam_Step") end)
-	pcall(function() RunService:UnbindFromRenderStep("TR_Spectate_Step") end)
 	if guiFovCircle then pcall(function() guiFovCircle.Visible = false guiFovCircle:Destroy() end) guiFovCircle = nil end
 	pcall(clearAllAdornments)
 	for _, conn in ipairs(Connections) do pcall(function() conn:Disconnect() end) end Connections = {}
-	pcall(function() local char = player.Character if char then
-			local hum = char:FindFirstChildOfClass("Humanoid") local root = GetRootPart(char) if hum then
-				hum.PlatformStand = false hum.AutoRotate = true hum.CameraOffset = Vector3.new(0, 0, 0)
-				hum.WalkSpeed = 16 hum.JumpPower = 50 hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
-				hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-				hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-				if workspace.CurrentCamera then workspace.CurrentCamera.CameraSubject = hum end end if root then
-				root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-				root.AssemblyAngularVelocity = Vector3.new(0, 0, 0) end
-			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then part.CanCollide = true end end end end) pcall(function()
+	ResetCharacterPhysicsCleanly()
+	pcall(function()
 		if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView = DefaultCamera.FOV end
 		player.CameraMode = DefaultCamera.CameraMode player.CameraMinZoomDistance = DefaultCamera.MinZoom
 		player.CameraMaxZoomDistance = DefaultCamera.MaxZoom workspace.FallenPartsDestroyHeight = genv.FPDH
 		Lighting.ClockTime = DefaultLighting.ClockTime Lighting.Brightness = DefaultLighting.Brightness
 		Lighting.GlobalShadows = DefaultLighting.GlobalShadows
 		Lighting.OutdoorAmbient = DefaultLighting.OutdoorAmbient
-		RestoreFog() end) if immediate then
-		isClosingPermanently = true pcall(function() if ScreenGui then ScreenGui:Destroy() end end)
-		DeepCleanup() else SetMenuVisible(false, function()
-			pcall(function() if ScreenGui then ScreenGui:Destroy() end end) DeepCleanup() end)
-		isClosingPermanently = true task.delay(0.42, function()
-			pcall(function() if ScreenGui then ScreenGui:Destroy() end end) DeepCleanup() end) end end
+		RestoreFog() end)
+	if immediate then
+		pcall(function() if ScreenGui then ScreenGui:Destroy() end end)
+		DeepCleanup()
+		ResetCharacterPhysicsCleanly()
+	else
+		SetMenuVisible(false, function()
+			pcall(function() if ScreenGui then ScreenGui:Destroy() end end)
+			DeepCleanup()
+			ResetCharacterPhysicsCleanly()
+		end)
+		task.delay(0.42, function()
+			pcall(function() if ScreenGui then ScreenGui:Destroy() end end)
+			DeepCleanup()
+			ResetCharacterPhysicsCleanly()
+		end)
+	end
+end
 genv.TRScripts_ActiveShutdown = ShutdownInstance CloseBtn.MouseButton1Click:Connect(function()
 	if genv.TRScripts_ActiveShutdown == ShutdownInstance then genv.TRScripts_ActiveShutdown = nil end
 	ShutdownInstance(false) end)
