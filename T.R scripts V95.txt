@@ -2648,9 +2648,11 @@ ApplyGuiDesignSurface = function()
 					local cc = item.Instance:FindFirstChildOfClass("UICorner")
 					if cc then cc.CornerRadius = UDim.new(0, 11) end
 					local st = item.Instance:FindFirstChildOfClass("UIStroke")
-					if st then st.Transparency = 0.24 st.Thickness = 1.2 end
+					if st then st.Transparency = 0.24 st.Thickness = 1.2 st.Color = eff.Stroke end
 				elseif item.Instance:IsA("GuiButton") then
 					item.Instance.BackgroundTransparency = 0.42
+					local st = item.Instance:FindFirstChildOfClass("UIStroke")
+					if st and st:GetAttribute("_TRCyberBtnStroke") then st:Destroy() end
 				end
 			end
 		end
@@ -2716,6 +2718,7 @@ ApplyGuiDesignSurface = function()
 					local st = item.Instance:FindFirstChildOfClass("UIStroke")
 					if not st then
 						st = Instance.new("UIStroke")
+						st:SetAttribute("_TRCyberBtnStroke", true)
 						st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 						st.Parent = item.Instance
 					end
@@ -2780,6 +2783,8 @@ ApplyGuiDesignSurface = function()
 					item.Instance.BackgroundTransparency = 0
 					local cc = item.Instance:FindFirstChildOfClass("UICorner")
 					if cc then cc.CornerRadius = UDim.new(0, 2) end
+					local st = item.Instance:FindFirstChildOfClass("UIStroke")
+					if st and st:GetAttribute("_TRCyberBtnStroke") then st:Destroy() end
 				end
 			end
 		end
@@ -2817,9 +2822,13 @@ ApplyGuiDesignSurface = function()
 					local cc = item.Instance:FindFirstChildOfClass("UICorner")
 					if cc then cc.CornerRadius = UDim.new(0, 8) end
 					local st = item.Instance:FindFirstChildOfClass("UIStroke")
-					if st then st.Transparency = 0.60 st.Thickness = 1.0 end
+					if st then st.Transparency = 0.60 st.Thickness = 1.0 st.Color = eff.Stroke end
 				elseif item.Instance:IsA("GuiButton") then
 					item.Instance.BackgroundTransparency = 0.0
+					local cc = item.Instance:FindFirstChildOfClass("UICorner")
+					if cc and cc.CornerRadius.Offset == 2 then cc.CornerRadius = UDim.new(0, 6) end
+					local st = item.Instance:FindFirstChildOfClass("UIStroke")
+					if st and st:GetAttribute("_TRCyberBtnStroke") then st:Destroy() end
 				end
 			end
 		end
@@ -9965,8 +9974,12 @@ local function SetupTab12()
 	local currentPage = 1
 	local ITEMS_PER_PAGE = 10
 	local currentEmoteTrack = nil
+	local currentEmoteAnimObj = nil
 	local currentPlayingEmoteId = nil
 	local currentAppliedAnimId = nil
+	local defaultAnimateSnapshot = nil
+	local defaultAnimateChar = nil
+	local RebuildEmotesGrid = nil
 	local emoteToolEquipped = false
 	local emoteCatalogLoaded = false
 	local animCatalogLoaded = false
@@ -9995,25 +10008,112 @@ local function SetupTab12()
 	end
 	loadAnimMappingCache()
 
-	local function stopActiveEmote()
+	local function captureDefaultAnimate(ch)
+		if not ch then return end
+		if defaultAnimateChar == ch and defaultAnimateSnapshot then return end
+		local animate = ch:FindFirstChild("Animate")
+		if not animate then return end
+		local snap = {}
+		for _, folder in ipairs(animate:GetChildren()) do
+			local entries = {}
+			for _, child in ipairs(folder:GetChildren()) do
+				if child:IsA("Animation") then
+					local weights = {}
+					for _, wc in ipairs(child:GetChildren()) do
+						if wc:IsA("NumberValue") and wc.Name == "Weight" then
+							table.insert(weights, wc.Value)
+						end
+					end
+					table.insert(entries, { name = child.Name, animationId = child.AnimationId, weights = weights })
+				end
+			end
+			if #entries > 0 then
+				snap[folder.Name] = entries
+			end
+		end
+		if next(snap) ~= nil then
+			defaultAnimateSnapshot = snap
+			defaultAnimateChar = ch
+		end
+	end
+	if player.Character then task.defer(function() captureDefaultAnimate(player.Character) end) end
+
+	local function resetAnimationPackToDefault()
+		currentAppliedAnimId = nil
+		savedConfig.LastPlayedAnimation = nil
+		SaveConfig(false)
+		local ch = player.Character
+		if not ch then return end
+		local hm = ch:FindFirstChildOfClass("Humanoid")
+		local animate = ch:FindFirstChild("Animate")
+		if animate and defaultAnimateChar == ch and type(defaultAnimateSnapshot) == "table" then
+			for folderName, entries in pairs(defaultAnimateSnapshot) do
+				local folder = animate:FindFirstChild(folderName)
+				if folder then
+					for _, oldAnim in ipairs(folder:GetChildren()) do
+						if oldAnim:IsA("Animation") then oldAnim:Destroy() end
+					end
+					for _, entry in ipairs(entries) do
+						local ao = Instance.new("Animation")
+						ao.Name = entry.name
+						ao.AnimationId = entry.animationId
+						for _, wv in ipairs(entry.weights or {}) do
+							local nv = Instance.new("NumberValue")
+							nv.Name = "Weight"
+							nv.Value = wv
+							nv.Parent = ao
+						end
+						ao.Parent = folder
+					end
+				end
+			end
+			pcall(function()
+				animate.Disabled = true
+				task.wait()
+				if animate and animate.Parent then animate.Disabled = false end
+			end)
+		end
+		if hm then
+			pcall(function() hm:ChangeState(Enum.HumanoidStateType.Landed) end)
+		end
+	end
+
+	local function stopActiveEmote(resetAnimPack, skipRebuild)
 		if currentEmoteTrack then
-			pcall(function() currentEmoteTrack:Stop(0.15) end)
+			pcall(function() currentEmoteTrack:Stop(0) end)
+			pcall(function() currentEmoteTrack:Destroy() end)
 			currentEmoteTrack = nil
+		end
+		if currentEmoteAnimObj then
+			pcall(function() currentEmoteAnimObj:Destroy() end)
+			currentEmoteAnimObj = nil
 		end
 		currentPlayingEmoteId = nil
 		pcall(function()
 			local ch = player.Character
 			local hm = ch and ch:FindFirstChildOfClass("Humanoid")
 			if hm then
-				for _, tr in ipairs(hm:GetPlayingAnimationTracks()) do
-					if tr.Priority == Enum.AnimationPriority.Action or tr.Priority == Enum.AnimationPriority.Action2 then
-						pcall(function() tr:Stop(0.12) end)
+				local animator = hm:FindFirstChildOfClass("Animator")
+				local tracks = {}
+				for _, tr in ipairs(hm:GetPlayingAnimationTracks()) do tracks[tr] = true end
+				if animator then
+					for _, tr in ipairs(animator:GetPlayingAnimationTracks()) do tracks[tr] = true end
+				end
+				for tr in pairs(tracks) do
+					if resetAnimPack or tr.Priority == Enum.AnimationPriority.Action or tr.Priority == Enum.AnimationPriority.Action2 or tr.Priority == Enum.AnimationPriority.Action3 or tr.Priority == Enum.AnimationPriority.Action4 then
+						pcall(function() tr:Stop(0) end)
 					end
 				end
 			end
 		end)
+		if resetAnimPack then
+			resetAnimationPackToDefault()
+		end
+		if not skipRebuild and RebuildEmotesGrid then
+			RebuildEmotesGrid()
+		end
 	end
-	FUI.StopActiveEmote = stopActiveEmote
+	FUI.StopActiveEmote = function() stopActiveEmote(true) end
 
 	local function getEmoteSpeedMult()
 		return math.clamp((tonumber(Config.EmoteSpeed) or 10) / 10, 0.1, 5.0)
@@ -10051,7 +10151,7 @@ local function SetupTab12()
 		local ch = player.Character
 		local hm = ch and ch:FindFirstChildOfClass("Humanoid")
 		if not hm then return false end
-		stopActiveEmote()
+		stopActiveEmote(false, true)
 		local spd = getEmoteSpeedMult()
 		local playedTrack = nil
 		if not Config.EmoteWalkEnabled then
@@ -10062,25 +10162,31 @@ local function SetupTab12()
 			end
 		end
 		if not playedTrack then
-			local animator = hm:FindFirstChildOfClass("Animator") or hm
+			local animator = hm:FindFirstChildOfClass("Animator") or hm:WaitForChild("Animator", 2) or hm
 			local animId = resolveEmoteAnimAssetId(numId)
 			if animId then
 				local anim = Instance.new("Animation")
+				anim.Name = "TR_ActiveEmote"
 				anim.AnimationId = "rbxassetid://" .. tostring(animId)
 				local ok2, tr2 = pcall(function() return animator:LoadAnimation(anim) end)
-				pcall(function() anim:Destroy() end)
 				if ok2 and tr2 then
-					tr2.Priority = Enum.AnimationPriority.Action
+					currentEmoteAnimObj = anim
+					tr2.Priority = Enum.AnimationPriority.Action4
 					tr2.Looped = true
-					tr2:Play(0.12)
+					tr2:Play(0.1, 1, spd)
+					pcall(function() tr2:AdjustWeight(1, 0) end)
 					pcall(function() tr2:AdjustSpeed(spd) end)
 					playedTrack = tr2
+				else
+					pcall(function() anim:Destroy() end)
 				end
 			end
 		end
 		if playedTrack then
 			currentEmoteTrack = playedTrack
 			currentPlayingEmoteId = numId
+			if currentMode == "emote" or favOnlyMode then currentPage = 1 end
+			if RebuildEmotesGrid then RebuildEmotesGrid() end
 			return true
 		end
 		return false
@@ -10133,7 +10239,8 @@ local function SetupTab12()
 		local hm = ch and ch:FindFirstChildOfClass("Humanoid")
 		local animate = ch and ch:FindFirstChild("Animate")
 		if not hm or not animate then return false end
-		stopActiveEmote()
+		captureDefaultAnimate(ch)
+		stopActiveEmote(false, true)
 		local cacheKey = tostring(animData.id)
 		local mappings = animMappingCache[cacheKey]
 		if not mappings or #mappings == 0 then
@@ -10185,12 +10292,25 @@ local function SetupTab12()
 				end
 			end
 		end
-		if hm.MoveDirection.Magnitude == 0 then
-			pcall(function() animate.Disabled = true animate.Disabled = false end)
-		end
+		pcall(function()
+			local animator = hm:FindFirstChildOfClass("Animator")
+			if animator then
+				for _, tr in ipairs(animator:GetPlayingAnimationTracks()) do
+					pcall(function() tr:Stop(0) end)
+				end
+			end
+			animate.Disabled = true
+			task.wait(0.05)
+			if animate and animate.Parent then animate.Disabled = false end
+			if hm and hm.Parent then
+				hm:ChangeState(Enum.HumanoidStateType.Landed)
+			end
+		end)
 		currentAppliedAnimId = animData.id
 		savedConfig.LastPlayedAnimation = { id = animData.id, name = animData.name, bundledItems = animData.bundledItems }
 		SaveConfig(false)
+		if currentMode == "animation" or favOnlyMode then currentPage = 1 end
+		if RebuildEmotesGrid then RebuildEmotesGrid() end
 		return true
 	end
 
@@ -10420,11 +10540,28 @@ local function SetupTab12()
 		return out
 	end
 
+	local function prioritizeActiveItem(list, activeId)
+		if not activeId then return list end
+		local targetStr = tostring(activeId)
+		for idx = 1, #list do
+			if tostring(list[idx].id) == targetStr then
+				if idx > 1 then
+					local picked = table.remove(list, idx)
+					table.insert(list, 1, picked)
+				end
+				break
+			end
+		end
+		return list
+	end
+
 	local function getFilteredCatalog()
-		local source = (currentMode == "animation") and animsList or emotesList
-		local favs = (currentMode == "animation") and savedConfig.FavoriteAnimations or savedConfig.FavoriteEmotes
+		local isAnim = (currentMode == "animation")
+		local source = isAnim and animsList or emotesList
+		local favs = isAnim and savedConfig.FavoriteAnimations or savedConfig.FavoriteEmotes
+		local activeId = isAnim and currentAppliedAnimId or currentPlayingEmoteId
 		local favFiltered = filterItemsByQuery(favs)
-		if favOnlyMode then return favFiltered end
+		if favOnlyMode then return prioritizeActiveItem(favFiltered, activeId) end
 		local out = {}
 		local seen = {}
 		for _, f in ipairs(favFiltered) do
@@ -10436,7 +10573,7 @@ local function SetupTab12()
 				table.insert(out, it)
 			end
 		end
-		return out
+		return prioritizeActiveItem(out, activeId)
 	end
 
 	local function getTotalPagesForCurrentView()
@@ -10459,7 +10596,6 @@ local function SetupTab12()
 		FUI.TweenButtonState(modeFavBtn, favOnlyMode and Color3.fromRGB(230, 175, 32) or th.PanelBg, favOnlyMode and Color3.fromRGB(20, 20, 24) or th.TextPrimary, favOnlyMode)
 	end
 
-	local RebuildEmotesGrid
 	local function buildCatalogCell(parentFrame, item, isAnim, layoutOrder, th, fixedHeight)
 		local cell = Instance.new("Frame", parentFrame)
 		cell.LayoutOrder = layoutOrder
@@ -10469,10 +10605,11 @@ local function SetupTab12()
 		cell.BorderSizePixel = 0
 		cell.ClipsDescendants = true
 		AddCorner(cell, 8)
+		local isPlayingItem = isAnim and (currentAppliedAnimId ~= nil and tostring(currentAppliedAnimId) == tostring(item.id)) or (not isAnim and currentPlayingEmoteId ~= nil and tostring(currentPlayingEmoteId) == tostring(item.id))
 		local cst = Instance.new("UIStroke", cell)
-		cst.Thickness = 1
-		cst.Transparency = 0.55
-		cst.Color = th.Stroke
+		cst.Thickness = isPlayingItem and 1.8 or 1
+		cst.Transparency = isPlayingItem and 0.0 or 0.55
+		cst.Color = isPlayingItem and th.Accent or th.Stroke
 
 		local thumb = Instance.new("ImageLabel", cell)
 		thumb.Size = UDim2.new(0, 44, 0, 44)
@@ -10514,7 +10651,7 @@ local function SetupTab12()
 		idLbl.TextSize = 10
 		idLbl.TextColor3 = th.Accent
 		idLbl.TextXAlignment = Enum.TextXAlignment.Left
-		idLbl.Text = (isAnim and "Pack #" or "ID: ") .. tostring(item.id)
+		idLbl.Text = (isPlayingItem and (isAnim and "[ACTIVE] Pack #" or "[PLAYING] ID: ") or (isAnim and "Pack #" or "ID: ")) .. tostring(item.id)
 
 		playArea.MouseButton1Click:Connect(function()
 			cst.Color = th.Accent
@@ -10614,8 +10751,8 @@ local function SetupTab12()
 		if favOnlyMode then
 			GridContainer.Visible = false
 			FavSplitContainer.Visible = true
-			local favEmotes = filterItemsByQuery(savedConfig.FavoriteEmotes)
-			local favAnims = filterItemsByQuery(savedConfig.FavoriteAnimations)
+			local favEmotes = prioritizeActiveItem(filterItemsByQuery(savedConfig.FavoriteEmotes), currentPlayingEmoteId)
+			local favAnims = prioritizeActiveItem(filterItemsByQuery(savedConfig.FavoriteAnimations), currentAppliedAnimId)
 			local perCol = 12
 			local totalPages = math.max(1, math.ceil(math.max(#favEmotes, #favAnims) / perCol))
 			currentPage = math.clamp(currentPage, 1, totalPages)
@@ -10726,7 +10863,7 @@ local function SetupTab12()
 		end
 	end)
 	stopBtn.MouseButton1Click:Connect(function()
-		stopActiveEmote()
+		task.spawn(function() stopActiveEmote(true) end)
 	end)
 	playIdBtn.MouseButton1Click:Connect(function()
 		local raw = tostring(emoteSearchBox.Text or ""):match("(%d+)")
