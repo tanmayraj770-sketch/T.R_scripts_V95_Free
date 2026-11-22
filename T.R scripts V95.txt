@@ -81,13 +81,13 @@ local CONFIG_FILENAME = "TRScripts_Config_V100.json" local FALLBACK_FILES = {
 		FlySpeed = 100, FlyKeybind = "E", FreecamSpeed = 60, FreecamKeybind = "C", MouseLockKeybind = "M", AimbotKeybind = "Q", AimbotKeyMode = "Toggle", AimbotBurstDurationMs = 1000, TargetAimbotKeybind = "T", AutoShootKeybind = "Z", AutoShootMode = "Aimbot", AimbotAutoShootKeybind = "None", AimbotAutoShootEnabled = false, AutoShootDelayMs = 25, ESPHealthBars = true, AimbotFOVRadius = 200,
 		AimbotFOVCircleEnabled = true, AimbotEnabled = false, TargetAimbotEnabled = false, StrongLock = true, StickMode = "Back", OrbitRadius = 8, OrbitSpeed = 10, AntiKatanaEnabled = true, FloatingIconEnabled = true, FloatingIconLocked = false, MobileFloatStyle = "Pill", WallcheckEnabled = true,
 		AimbotTeamCheck = true, AutoShootEnabled = false, InfiniteJump = false, SpiderClimb = false,
-		ItemMagnetEnabled = false, ItemMagnetRadius = 60, ESPShowTeammates = false, AimPartName = "Head",
+		ItemMagnetEnabled = false, ItemMagnetRadius = 60, AimPartName = "Head",
 		MasterUtilityEnabled = false, MasterFlightEnabled = false, NoclipEnabled = false,
 		AntiFlingEnabled = true, AutoSelectFling = false, AntiCheatBypass = true, ShiftDownEnabled = true,
 		CountdownBypass = false, AntiAFK = true, InstantPrompt = false, ESPEnabled = false,
 		FullbrightEnabled = false, NoFogEnabled = false, CameraOverrideMode = "Free / Unlocked", LockedTime = nil,
 		FpsBoosterEnabled = false, TelemetryHudEnabled = false, TelemetryHudLocked = false,
-		TelemetryHudWidth = 248, TelemetryHudHeight = 114, WaypointScope = "ThisGame", WaypointBeaconsEnabled = false, ToggleNotifsEnabled = true, RadialWheelEnabled = true, RadialWheelKeybind = "V", RadialWheelScale = 100, FocusPowerSaverEnabled = true, ZoomBinocularsEnabled = true, ZoomKeybind = "B", ZoomTargetFOV = 20 }, Waypoints = {
+		TelemetryHudWidth = 248, TelemetryHudHeight = 114, WaypointScope = "ThisGame", WaypointBeaconsEnabled = false, ToggleNotifsEnabled = true, RadialWheelEnabled = true, RadialWheelKeybind = "V", RadialWheelScale = 100, FocusPowerSaverEnabled = true, ZoomBinocularsEnabled = true, ZoomKeybind = "B", ZoomTargetFOV = 20, EmoteWalkEnabled = false, EmoteSpeed = 10, EmoteAutoReload = false }, Waypoints = {
 		{ Name = "Spawn Point", X = 0, Y = 50, Z = 0, Keybind = "None", PlaceId = 0 } }, RadarKeybinds = {},
 	ExecutorTabs = {
 		{ Name = "Script 1", Code = "print('T.R Scripts V95 Ready!')" } },
@@ -95,6 +95,9 @@ local CONFIG_FILENAME = "TRScripts_Config_V100.json" local FALLBACK_FILES = {
 		{ Name = "Hello Test", Code = "print('Hello from T.R Scripts V95 Library!')", Favorite = true } },
 	FavoriteFunctions = {},
 	RadialWheelItems = {},
+	FavoriteEmotes = {},
+	FavoriteAnimations = {},
+	LastPlayedAnimation = nil,
 	ActiveExecutorTab = 1 }
 local savedConfig = HttpService:JSONDecode(HttpService:JSONEncode(DefaultConfig))
 local Config = savedConfig.Settings local SaveFeedbackCallback = nil
@@ -134,6 +137,9 @@ local function syncAllSystems() SaveConfig(false) end local function LoadConfig(
 					if type(decoded.ExecutorLibrary) == "table" then savedConfig.ExecutorLibrary = decoded.ExecutorLibrary end
 					if type(decoded.FavoriteFunctions) == "table" then savedConfig.FavoriteFunctions = decoded.FavoriteFunctions end
 					if type(decoded.RadialWheelItems) == "table" then savedConfig.RadialWheelItems = decoded.RadialWheelItems end
+					if type(decoded.FavoriteEmotes) == "table" then savedConfig.FavoriteEmotes = decoded.FavoriteEmotes end
+					if type(decoded.FavoriteAnimations) == "table" then savedConfig.FavoriteAnimations = decoded.FavoriteAnimations end
+					if type(decoded.LastPlayedAnimation) == "table" then savedConfig.LastPlayedAnimation = decoded.LastPlayedAnimation end
 					if type(decoded.ActiveExecutorTab) == "number" then savedConfig.ActiveExecutorTab = decoded.ActiveExecutorTab end
 				end end end end)
 	if not savedConfig.Settings.FreecamKeybind then savedConfig.Settings.FreecamKeybind = "C" end
@@ -3243,6 +3249,7 @@ FUI.SwitchToTab = function(tabName)
 	elseif tabName == "Target Fling" and genv._TR_RefreshFling then pcall(genv._TR_RefreshFling)
 	elseif tabName == "Aimbot & Visuals" and genv._TR_RefreshTargetAimbotList then pcall(genv._TR_RefreshTargetAimbotList)
 	elseif tabName == "Script Executor" and FUI.SyncConsoleUI then pcall(FUI.SyncConsoleUI)
+	elseif tabName == "Emotes & Anims" and FUI.RefreshEmotesTab then pcall(FUI.RefreshEmotesTab)
 	elseif tabName == "Hacker Detector" and genv._TR_RefreshDetectorOrder then pcall(genv._TR_RefreshDetectorOrder) end
 end
 
@@ -3696,6 +3703,43 @@ FUI.RemoveItemFromRadialWheel = function(itemKey)
 	end
 end
 
+FUI.RenameRadialWheelItem = function(oldKey, newKey)
+	if type(oldKey) ~= "string" or type(newKey) ~= "string" or oldKey == "" or newKey == "" or oldKey == newKey then return false end
+	if type(savedConfig.RadialWheelItems) ~= "table" then return false end
+	local changed = false
+	local newAlreadyIdx = nil
+	for i = 1, #savedConfig.RadialWheelItems do
+		if savedConfig.RadialWheelItems[i] == newKey then
+			newAlreadyIdx = i
+			break
+		end
+	end
+	for i = #savedConfig.RadialWheelItems, 1, -1 do
+		if savedConfig.RadialWheelItems[i] == oldKey then
+			if newAlreadyIdx then
+				table.remove(savedConfig.RadialWheelItems, i)
+			else
+				savedConfig.RadialWheelItems[i] = newKey
+				newAlreadyIdx = i
+			end
+			changed = true
+		end
+	end
+	if changed then
+		if FUI.RadialCircleButtons[oldKey] then
+			FUI.RadialCircleButtons[newKey] = FUI.RadialCircleButtons[newKey] or {}
+			for _, b in ipairs(FUI.RadialCircleButtons[oldKey]) do
+				if b and b.Parent then table.insert(FUI.RadialCircleButtons[newKey], b) end
+			end
+			FUI.RadialCircleButtons[oldKey] = nil
+		end
+		FUI.SyncAllRadialCircleButtons(oldKey)
+		FUI.SyncAllRadialCircleButtons(newKey)
+		SaveConfig(false, true)
+	end
+	return changed
+end
+
 FUI.ToggleRadialWheelItem = function(itemKey, displayLabel)
 	if not itemKey or itemKey == "" then return false end
 	if type(savedConfig.RadialWheelItems) ~= "table" then savedConfig.RadialWheelItems = {} end
@@ -3721,6 +3765,10 @@ FUI.ToggleRadialWheelItem = function(itemKey, displayLabel)
 					table.remove(savedConfig.RadialWheelItems, i)
 				elseif k:sub(1, 7) == "AVATAR:" then
 					if FUI.AvatarWheelBridge and FUI.AvatarWheelBridge.GetAvatarEntry and not FUI.AvatarWheelBridge.GetAvatarEntry(k) then
+						table.remove(savedConfig.RadialWheelItems, i)
+					end
+				elseif k:sub(1, 6) == "EMOTE:" or k:sub(1, 5) == "ANIM:" then
+					if FUI.EmoteWheelBridge and FUI.EmoteWheelBridge.HasEntry and not FUI.EmoteWheelBridge.HasEntry(k) then
 						table.remove(savedConfig.RadialWheelItems, i)
 					end
 				elseif not FUI.FavoriteRegistry[k] then
@@ -4012,6 +4060,7 @@ local Tab7_Visuals   = CreateTab("Aimbot & Visuals", E.Target, 8)
 local Tab8_Executor  = CreateTab("Script Executor", E.Laptop, 9)
 local Tab9_Detector  = CreateTab("Hacker Detector", E.Search, 10)
 local Tab10_Avatar   = CreateTab("Avatar Changer", E.Crown, 11)
+local Tab12_Emotes   = CreateTab("Emotes & Anims", E.Sparkle, 12)
 
 do
 	local favHdr = CreateSectionHeader(Tab0_Favorite, 'Favorite Functions (Click <font color="#FFD43B">★</font> on any toggle across tabs to pin here)', 1)
@@ -5566,6 +5615,15 @@ do
 										end
 									}
 								}
+								if idx >= 8 then break end
+							end
+						end
+					elseif itemKey:sub(1, 6) == "EMOTE:" or itemKey:sub(1, 5) == "ANIM:" then
+						if FUI.EmoteWheelBridge and FUI.EmoteWheelBridge.GetWheelItem then
+							local ew = FUI.EmoteWheelBridge.GetWheelItem(itemKey)
+							if ew then
+								idx = idx + 1
+								wheelItems[idx] = ew
 								if idx >= 8 then break end
 							end
 						end
@@ -7757,7 +7815,6 @@ local excludedPlayers, characterCache, adornmentsCache, katanaActiveUntil = {}, 
 local guiFovCircle = nil
 local MAX_DISTANCE = 650
 local wallcheckEnabled = (Config.WallcheckEnabled ~= false)
-local espShowTeammates = (Config.ESPShowTeammates == true)
 local aimPartName = Config.AimPartName or "Head"
 local reusableWallcheckParams, updateWallcheckFilter
 local IsTeammate, getTargetPart, isTargetVisible, removePlayerAdornments, clearAllAdornments, worldToScreenDistance
@@ -8033,33 +8090,32 @@ local function SetupTab7()
 		end
 		local themeAccent = GetTheme().Accent
 		for plr in pairs(highlightsCache) do
-			if not plr or not plr.Parent or not plr.Character or excludedPlayers[plr] or (not espShowTeammates and IsTeammate(plr)) then
+			if not plr or not plr.Parent or not plr.Character then
 				removePlayerHighlight(plr)
 			end
 		end
 		for _, plr in ipairs(Players:GetPlayers()) do
 			if plr ~= player and plr.Character then
-				local allowTeam = espShowTeammates or not IsTeammate(plr)
-				if not excludedPlayers[plr] and allowTeam then
-					local existing = highlightsCache[plr]
-					if not existing or not existing.Parent then
-						pcall(function()
-							local hl = Instance.new("Highlight")
-							hl.Name = "AssetHighlight"
-							hl.FillColor = themeAccent
-							hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-							hl.FillTransparency = 0.45
-							hl.OutlineTransparency = 0.1
-							hl.Adornee = plr.Character
-							hl.Parent = ScreenGui
-							highlightsCache[plr] = hl
-						end)
-					else
-						if existing.Adornee ~= plr.Character then existing.Adornee = plr.Character end
-						if existing.FillColor ~= themeAccent then existing.FillColor = themeAccent end
-					end
+				local existing = highlightsCache[plr]
+				if not existing or not existing.Parent then
+					pcall(function()
+						local hl = Instance.new("Highlight")
+						hl.Name = "AssetHighlight"
+						hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+						hl.FillColor = themeAccent
+						hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+						hl.FillTransparency = 0.45
+						hl.OutlineTransparency = 0.1
+						hl.Adornee = plr.Character
+						hl.Enabled = true
+						hl.Parent = ScreenGui
+						highlightsCache[plr] = hl
+					end)
 				else
-					removePlayerHighlight(plr)
+					if existing.Adornee ~= plr.Character then existing.Adornee = plr.Character end
+					if existing.FillColor ~= themeAccent then existing.FillColor = themeAccent end
+					if existing.DepthMode ~= Enum.HighlightDepthMode.AlwaysOnTop then existing.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop end
+					if not existing.Enabled then existing.Enabled = true end
 				end
 			else
 				removePlayerHighlight(plr)
@@ -8073,6 +8129,47 @@ local function SetupTab7()
 	local COL_HP_LOW = Color3.fromRGB(255, 30, 30)
 	local COL_SHIELD_CYAN = Color3.fromRGB(0, 215, 255)
 	local COL_ESP_WHITE = Color3.fromRGB(255, 255, 255)
+	local function GetRigRootPart(char)
+		if not char then return nil end
+		local root = char:FindFirstChild("HumanoidRootPart")
+			or char:FindFirstChild("UpperTorso")
+			or char:FindFirstChild("Torso")
+			or char.PrimaryPart
+			or char:FindFirstChild("Head")
+		if root and root:IsA("BasePart") then return root end
+		for _, child in ipairs(char:GetChildren()) do
+			if child:IsA("BasePart") then return child end
+		end
+		return nil
+	end
+	local function GetCharacterRigMetrics(char, root, hum)
+		local w, h, d = 3.8, 5.2, 1.4
+		local centerY = -0.2
+		local rootY = root.Position.Y
+		local ok, bbCf, bbSize = pcall(function() return char:GetBoundingBox() end)
+		if ok and bbCf and bbSize then
+			w = math.clamp(bbSize.X, 2.0, 7.0)
+			h = math.clamp(bbSize.Y, 2.4, 10.5)
+			d = math.clamp(bbSize.Z, 1.0, 4.2)
+			centerY = math.clamp(bbCf.Position.Y - rootY, -3.0, 3.0)
+		else
+			local hip = (hum and hum.HipHeight and hum.HipHeight > 0) and hum.HipHeight or 2.0
+			local torsoH = root.Size.Y
+			h = math.clamp(hip + torsoH + 1.5, 2.6, 10.0)
+			w = math.clamp(math.max(root.Size.X * 1.9, 2.4), 2.2, 6.5)
+			d = math.clamp(math.max(root.Size.Z * 1.25, 1.1), 1.0, 3.8)
+			centerY = math.clamp((h * 0.5) - hip - (torsoH * 0.5), -2.5, 2.5)
+		end
+		local head = char:FindFirstChild("Head")
+		local topY = centerY + (h * 0.5) + 0.85
+		if head and head:IsA("BasePart") then
+			local headTop = (head.Position.Y + (head.Size.Y * 0.5)) - rootY + 1.15
+			topY = math.clamp(math.max(topY, headTop), 2.0, 8.5)
+		else
+			topY = math.clamp(topY, 2.0, 8.5)
+		end
+		return w, h, d, centerY, topY
+	end
 	updateAllAdornments = function()
 		local espOn = (Config.ESPEnabled == true)
 		local barsOn = (Config.ESPHealthBars ~= false)
@@ -8082,16 +8179,15 @@ local function SetupTab7()
 		end
 		local accentCol = GetTheme().Accent
 		for plr in pairs(adornmentsCache) do
-			if not plr or not plr.Parent or excludedPlayers[plr] then removePlayerAdornments(plr) end
+			if not plr or not plr.Parent then removePlayerAdornments(plr) end
 		end
 		local cam = workspace.CurrentCamera
 		local camPos = cam and cam.CFrame.Position
 		local nowClock = os.clock()
 		for _, plr in ipairs(Players:GetPlayers()) do
-			local allowTeam = espShowTeammates or not IsTeammate(plr)
-			if plr ~= LocalPlayer and not excludedPlayers[plr] and allowTeam then
+			if plr ~= LocalPlayer then
 				local char = plr.Character
-				local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
+				local root = GetRigRootPart(char)
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
 				if char and root and hum and hum.Health > 0 then
 					local pair = adornmentsCache[plr]
@@ -8133,9 +8229,23 @@ local function SetupTab7()
 						pair = {
 							inner = inner, outline = outline,
 							healthBar = healthBar, healthBg = healthBg,
-							shieldBar = shieldBar, shieldBg = shieldBg
+							shieldBar = shieldBar, shieldBg = shieldBg,
+							rigW = 3.8, rigH = 5.2, rigD = 1.4, rigCenterY = -0.2, rigTopY = 3.6,
+							lastRigCheck = 0
 						}
 						adornmentsCache[plr] = pair
+					end
+
+					local rigChanged = false
+					if pair.lastChar ~= char or pair.lastRoot ~= root or (nowClock - (pair.lastRigCheck or 0)) >= 0.45 then
+						local rw, rh, rd, rcy, rty = GetCharacterRigMetrics(char, root, hum)
+						if math.abs(rw - pair.rigW) > 0.12 or math.abs(rh - pair.rigH) > 0.12 or math.abs(rd - pair.rigD) > 0.12 or math.abs(rcy - pair.rigCenterY) > 0.12 or math.abs(rty - pair.rigTopY) > 0.12 or pair.lastChar ~= char or pair.lastRoot ~= root then
+							pair.rigW, pair.rigH, pair.rigD, pair.rigCenterY, pair.rigTopY = rw, rh, rd, rcy, rty
+							rigChanged = true
+						end
+						pair.lastChar = char
+						pair.lastRoot = root
+						pair.lastRigCheck = nowClock
 					end
 
 					pair.inner.Visible = espOn
@@ -8144,12 +8254,22 @@ local function SetupTab7()
 						if pair.inner.Adornee ~= root then
 							pair.inner.Adornee = root
 							pair.outline.Adornee = root
+							rigChanged = true
+						end
+						if rigChanged then
+							local boxCf = CFrame.new(0, pair.rigCenterY, 0)
+							pair.inner.Size = Vector3.new(pair.rigW, pair.rigH, pair.rigD)
+							pair.inner.CFrame = boxCf
+							pair.outline.Size = Vector3.new(pair.rigW + 0.22, pair.rigH + 0.22, pair.rigD + 0.14)
+							pair.outline.CFrame = boxCf
 						end
 						if pair.inner.Color3 ~= accentCol then pair.inner.Color3 = accentCol end
 					end
 
 					if barsOn then
 						local hp, maxHp, shield, maxShield = GetPlayerHealthAndShield(char, hum)
+						maxHp = math.max(1, maxHp or 100)
+						maxShield = math.max(1, maxShield or 100)
 						local dist = camPos and (camPos - root.Position).Magnitude or 40
 						local distBucket = math.floor(dist * 0.25)
 						local hpInt = math.floor(hp + 0.5)
@@ -8157,6 +8277,10 @@ local function SetupTab7()
 						local shieldInt = math.floor(shield + 0.5)
 						local hpPct = math.clamp(hp / maxHp, 0, 1)
 						local hpCol = (hpPct > 0.55 and COL_HP_HIGH) or (hpPct > 0.25 and COL_HP_MID) or COL_HP_LOW
+						local barFullH = math.clamp(pair.rigH * 0.94, 2.4, 9.5)
+						local barBgH = barFullH + 0.3
+						local sideX = (pair.rigW * 0.5) + 0.55 + (dist * 0.004)
+						local baseY = pair.rigCenterY - (barFullH * 0.5)
 
 						if not pair.healthBg.Visible then
 							pair.healthBg.Visible = true
@@ -8168,16 +8292,16 @@ local function SetupTab7()
 						if pair.healthBg.Adornee ~= root then
 							pair.healthBg.Adornee = root
 							pair.healthBar.Adornee = root
+							rigChanged = true
 						end
-						if pair.lastDistBucket ~= distBucket or pair.lastHpInt ~= hpInt or pair.lastMaxHpInt ~= maxHpInt then
-							local barThick = math.clamp(0.48 + (dist * 0.0055), 0.48, 3.2)
-							local bgThick = barThick + 0.35
-							local xOffsetLeft = -2.5 - (dist * 0.004)
-							local barH = math.max(0.22, 5.0 * hpPct)
-							pair.healthBg.Size = Vector3.new(bgThick, 5.3, bgThick)
-							pair.healthBg.CFrame = CFrame.new(xOffsetLeft, 0, 0)
+						if rigChanged or pair.lastDistBucket ~= distBucket or pair.lastHpInt ~= hpInt or pair.lastMaxHpInt ~= maxHpInt then
+							local barThick = math.clamp(0.42 + (dist * 0.0055), 0.42, 3.0)
+							local bgThick = barThick + 0.32
+							local barH = math.max(0.22, barFullH * hpPct)
+							pair.healthBg.Size = Vector3.new(bgThick, barBgH, bgThick)
+							pair.healthBg.CFrame = CFrame.new(-sideX, pair.rigCenterY, 0)
 							pair.healthBar.Size = Vector3.new(barThick, barH, barThick)
-							pair.healthBar.CFrame = CFrame.new(xOffsetLeft, -2.5 + (barH * 0.5), 0)
+							pair.healthBar.CFrame = CFrame.new(-sideX, baseY + (barH * 0.5), 0)
 							pair.healthBar.Color3 = hpCol
 						end
 
@@ -8190,19 +8314,19 @@ local function SetupTab7()
 							if pair.shieldBg.Adornee ~= root then
 								pair.shieldBg.Adornee = root
 								pair.shieldBar.Adornee = root
+								rigChanged = true
 							end
-							if pair.lastDistBucket ~= distBucket or pair.lastShieldInt ~= shieldInt then
-								local barThick = math.clamp(0.48 + (dist * 0.0055), 0.48, 3.2)
-								local bgThick = barThick + 0.35
-								local xOffsetRight = 2.5 + (dist * 0.004)
+							if rigChanged or pair.lastDistBucket ~= distBucket or pair.lastShieldInt ~= shieldInt then
+								local barThick = math.clamp(0.42 + (dist * 0.0055), 0.42, 3.0)
+								local bgThick = barThick + 0.32
 								local sPct = math.clamp(shield / maxShield, 0, 1)
-								local sBarH = math.max(0.22, 5.0 * sPct)
-								pair.shieldBg.Size = Vector3.new(bgThick, 5.3, bgThick)
-								pair.shieldBg.CFrame = CFrame.new(xOffsetRight, 0, 0)
+								local sBarH = math.max(0.22, barFullH * sPct)
+								pair.shieldBg.Size = Vector3.new(bgThick, barBgH, bgThick)
+								pair.shieldBg.CFrame = CFrame.new(sideX, pair.rigCenterY, 0)
 								pair.shieldBg.Transparency = 0.0
 								pair.shieldBg.Color3 = COL_ESP_BLACK
 								pair.shieldBar.Size = Vector3.new(barThick, sBarH, barThick)
-								pair.shieldBar.CFrame = CFrame.new(xOffsetRight, -2.5 + (sBarH * 0.5), 0)
+								pair.shieldBar.CFrame = CFrame.new(sideX, baseY + (sBarH * 0.5), 0)
 								pair.shieldBar.Transparency = 0.0
 								pair.shieldBar.Color3 = COL_SHIELD_CYAN
 							end
@@ -8213,8 +8337,8 @@ local function SetupTab7()
 							bb.Name = "TR_HealthBillboard"
 							bb.AlwaysOnTop = true
 							bb.Size = UDim2.new(0, 88, 0, 16)
-							bb.StudsOffset = Vector3.new(0, 3.8, 0)
-							bb.DistanceMax = 1200
+							bb.StudsOffset = Vector3.new(0, pair.rigTopY, 0)
+							bb.MaxDistance = 4000
 							bb.Parent = ScreenGui
 							local bgF = Instance.new("Frame")
 							bgF.Size = UDim2.new(1, 0, 1, 0)
@@ -8242,6 +8366,9 @@ local function SetupTab7()
 						end
 						if pair.hpBillboard.Adornee ~= root then
 							pair.hpBillboard.Adornee = root
+						end
+						if rigChanged then
+							pair.hpBillboard.StudsOffset = Vector3.new(0, pair.rigTopY, 0)
 						end
 						if not pair.hpBillboard.Enabled then pair.hpBillboard.Enabled = true end
 						local katTag = (katanaActiveUntil and katanaActiveUntil[plr] and nowClock < katanaActiveUntil[plr]) and "[KATANA] " or ""
@@ -8936,9 +9063,6 @@ FUI.CreateFavoriteStarButton(AutoShootCard, "Auto-Shoot Mode 1: Aimbot Lock Auto
 		end
 		SaveConfig(false)
 	end)
-	CreateToggle(Tab7_Visuals, "Turn On ESP for Teammates (Show Teammate Highlights & Boxes)", espShowTeammates, 19, function(state)
-		espShowTeammates = state Config.ESPShowTeammates = state RefreshESPHighlights() updateAllAdornments()
-		SaveConfig(false) end)
 
 	CreateSectionHeader(Tab7_Visuals, "5. Camera Field of View & Perspective", 20)
 	FUI.FovSliderHandle = CreateSlider(Tab7_Visuals, "Camera Field of View (FOV)", 30, 120, Config.FOV, 21, function(val)
@@ -9740,6 +9864,748 @@ local function SetupTab8()
 end
 if FUI.SetLoadProgress then FUI.SetLoadProgress(82, "Loading Multi-Tab Script Executor...") end
 xpcall(SetupTab8, warn)
+
+local function SetupTab12()
+	local EMOTE_CACHE_FILE = "TR_EmoteCatalog_V95.json"
+	local ANIM_CACHE_FILE = "TR_AnimPackCatalog_V95.json"
+	local ANIM_MAP_CACHE_FILE = "TR_AnimMappings_V95.json"
+	local BUILTIN_EMOTES = {
+		{ id = 3360686498, name = "Stadium" },
+		{ id = 3360692915, name = "Tilt" },
+		{ id = 3576968026, name = "Shrug" },
+		{ id = 3360689775, name = "Salute" },
+		{ id = 3576686446, name = "Hello" },
+		{ id = 5915779043, name = "Applaud" }
+	}
+
+	if type(savedConfig.FavoriteEmotes) ~= "table" then savedConfig.FavoriteEmotes = {} end
+	if type(savedConfig.FavoriteAnimations) ~= "table" then savedConfig.FavoriteAnimations = {} end
+
+	local emotesList = {}
+	local animsList = {}
+	local animMappingCache = {}
+	local currentMode = "emote"
+	local favOnlyMode = false
+	local searchText = ""
+	local currentPage = 1
+	local ITEMS_PER_PAGE = 10
+	local currentEmoteTrack = nil
+	local currentPlayingEmoteId = nil
+	local currentAppliedAnimId = nil
+	local emoteToolEquipped = false
+	local emoteCatalogLoaded = false
+	local animCatalogLoaded = false
+
+	local function cleanAnimUrlToId(animUrl)
+		local s = tostring(animUrl or "")
+		s = s:gsub("http://www%.roblox%.com/asset/%?id=", "")
+		s = s:gsub("https://www%.roblox%.com/asset/%?id=", "")
+		s = s:gsub("rbxassetid://", "")
+		return s
+	end
+
+	local function loadAnimMappingCache()
+		pcall(function()
+			if SafeIsFile(ANIM_MAP_CACHE_FILE) then
+				local raw = SafeReadFile(ANIM_MAP_CACHE_FILE)
+				if raw and #raw > 0 then
+					local dec = HttpService:JSONDecode(raw)
+					if type(dec) == "table" then animMappingCache = dec end
+				end
+			end
+		end)
+	end
+	local function saveAnimMappingCache()
+		pcall(function() SafeWriteFile(ANIM_MAP_CACHE_FILE, HttpService:JSONEncode(animMappingCache)) end)
+	end
+	loadAnimMappingCache()
+
+	local function stopActiveEmote()
+		if currentEmoteTrack then
+			pcall(function() currentEmoteTrack:Stop(0.15) end)
+			currentEmoteTrack = nil
+		end
+		currentPlayingEmoteId = nil
+		pcall(function()
+			local ch = player.Character
+			local hm = ch and ch:FindFirstChildOfClass("Humanoid")
+			if hm then
+				for _, tr in ipairs(hm:GetPlayingAnimationTracks()) do
+					if tr.Priority == Enum.AnimationPriority.Action or tr.Priority == Enum.AnimationPriority.Action2 then
+						pcall(function() tr:Stop(0.12) end)
+					end
+				end
+			end
+		end)
+	end
+	FUI.StopActiveEmote = stopActiveEmote
+
+	local function getEmoteSpeedMult()
+		return math.clamp((tonumber(Config.EmoteSpeed) or 10) / 10, 0.1, 5.0)
+	end
+
+	local function resolveEmoteAnimAssetId(emoteId)
+		local fallback = tonumber(emoteId)
+		local idStr = tostring(emoteId or "")
+		if idStr == "" then return fallback end
+		local ok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. idStr) end)
+		if ok and type(objs) == "table" then
+			local function scan(obj)
+				if obj:IsA("Animation") then
+					local aid = tonumber(cleanAnimUrlToId(obj.AnimationId))
+					if aid and aid > 0 then return aid end
+				end
+				for _, c in ipairs(obj:GetChildren()) do
+					local f = scan(c)
+					if f then return f end
+				end
+				return nil
+			end
+			for _, o in ipairs(objs) do
+				local found = scan(o)
+				pcall(function() o:Destroy() end)
+				if found then return found end
+			end
+		end
+		return fallback
+	end
+
+	local function playEmoteById(emoteId)
+		local numId = tonumber(emoteId)
+		if not numId or numId <= 0 then return false end
+		local ch = player.Character
+		local hm = ch and ch:FindFirstChildOfClass("Humanoid")
+		if not hm then return false end
+		stopActiveEmote()
+		local spd = getEmoteSpeedMult()
+		local playedTrack = nil
+		if not Config.EmoteWalkEnabled then
+			local ok1, tr1 = pcall(function() return hm:PlayEmoteAndGetAnimTrackById(numId) end)
+			if ok1 and tr1 and typeof(tr1) == "Instance" and tr1:IsA("AnimationTrack") then
+				playedTrack = tr1
+				pcall(function() playedTrack:AdjustSpeed(spd) end)
+			end
+		end
+		if not playedTrack then
+			local animator = hm:FindFirstChildOfClass("Animator") or hm
+			local animId = resolveEmoteAnimAssetId(numId)
+			if animId then
+				local anim = Instance.new("Animation")
+				anim.AnimationId = "rbxassetid://" .. tostring(animId)
+				local ok2, tr2 = pcall(function() return animator:LoadAnimation(anim) end)
+				pcall(function() anim:Destroy() end)
+				if ok2 and tr2 then
+					tr2.Priority = Enum.AnimationPriority.Action
+					tr2.Looped = true
+					tr2:Play(0.12)
+					pcall(function() tr2:AdjustSpeed(spd) end)
+					playedTrack = tr2
+				end
+			end
+		end
+		if playedTrack then
+			currentEmoteTrack = playedTrack
+			currentPlayingEmoteId = numId
+			return true
+		end
+		return false
+	end
+
+	local function resolveBundleMappings(bundledItems)
+		local mappings = {}
+		if type(bundledItems) ~= "table" then return mappings end
+		for _, assetIds in pairs(bundledItems) do
+			if type(assetIds) == "table" then
+				for _, assetId in pairs(assetIds) do
+					local ok, objs = pcall(function() return game:GetObjects("rbxassetid://" .. tostring(assetId)) end)
+					if ok and type(objs) == "table" then
+						local function searchTree(parent, parentPath)
+							for _, child in ipairs(parent:GetChildren()) do
+								if child:IsA("Animation") then
+									local p = parentPath .. "." .. child.Name
+									local parts = string.split(p, ".")
+									local wVals = {}
+									for _, wc in ipairs(child:GetChildren()) do
+										if wc:IsA("NumberValue") and wc.Name == "Weight" then
+											table.insert(wVals, wc.Value)
+										end
+									end
+									table.insert(mappings, {
+										category = parts[#parts - 1] or "idle",
+										name = parts[#parts] or child.Name,
+										animationId = child.AnimationId,
+										weights = wVals
+									})
+								elseif #child:GetChildren() > 0 then
+									searchTree(child, parentPath .. "." .. child.Name)
+								end
+							end
+						end
+						for _, obj in ipairs(objs) do
+							searchTree(obj, obj.Name)
+							pcall(function() obj:Destroy() end)
+						end
+					end
+				end
+			end
+		end
+		return mappings
+	end
+
+	local function applyAnimationPack(animData)
+		if type(animData) ~= "table" or not animData.id then return false end
+		local ch = player.Character
+		local hm = ch and ch:FindFirstChildOfClass("Humanoid")
+		local animate = ch and ch:FindFirstChild("Animate")
+		if not hm or not animate then return false end
+		stopActiveEmote()
+		local cacheKey = tostring(animData.id)
+		local mappings = animMappingCache[cacheKey]
+		if not mappings or #mappings == 0 then
+			mappings = resolveBundleMappings(animData.bundledItems)
+			if #mappings > 0 then
+				animMappingCache[cacheKey] = mappings
+				task.spawn(saveAnimMappingCache)
+			end
+		end
+		if not mappings or #mappings == 0 then return false end
+		local byCat = {}
+		for _, m in ipairs(mappings) do
+			local cl = tostring(m.category or ""):lower()
+			if not byCat[cl] then byCat[cl] = { folderName = m.category, items = {} } end
+			byCat[cl].items[tostring(m.name or ""):lower()] = m
+		end
+		for _, info in pairs(byCat) do
+			local folder = animate:FindFirstChild(info.folderName)
+			if folder then
+				local pending = {}
+				for k, v in pairs(info.items) do pending[k] = v end
+				for _, ao in ipairs(folder:GetChildren()) do
+					if ao:IsA("Animation") then
+						local m = pending[ao.Name:lower()]
+						if m then
+							pending[ao.Name:lower()] = nil
+							ao.AnimationId = m.animationId
+							if m.weights then
+								for _, wc in ipairs(ao:GetChildren()) do
+									if wc:IsA("NumberValue") and wc.Name == "Weight" then wc:Destroy() end
+								end
+								for _, wv in ipairs(m.weights) do
+									local nv = Instance.new("NumberValue")
+									nv.Name = "Weight"
+									nv.Value = wv
+									nv.Parent = ao
+								end
+							end
+						else
+							ao:Destroy()
+						end
+					end
+				end
+				for _, m in pairs(pending) do
+					local ao = Instance.new("Animation")
+					ao.Name = m.name
+					ao.AnimationId = m.animationId
+					ao.Parent = folder
+				end
+			end
+		end
+		if hm.MoveDirection.Magnitude == 0 then
+			pcall(function() animate.Disabled = true animate.Disabled = false end)
+		end
+		currentAppliedAnimId = animData.id
+		savedConfig.LastPlayedAnimation = { id = animData.id, name = animData.name, bundledItems = animData.bundledItems }
+		SaveConfig(false)
+		return true
+	end
+
+	local function isFavEmote(id)
+		local s = tostring(id)
+		for _, f in ipairs(savedConfig.FavoriteEmotes) do
+			if tostring(f.id) == s then return true end
+		end
+		return false
+	end
+	local function isFavAnim(id)
+		local s = tostring(id)
+		for _, f in ipairs(savedConfig.FavoriteAnimations) do
+			if tostring(f.id) == s then return true end
+		end
+		return false
+	end
+
+	local function toggleFavEmote(item)
+		local s = tostring(item.id)
+		for i, f in ipairs(savedConfig.FavoriteEmotes) do
+			if tostring(f.id) == s then
+				table.remove(savedConfig.FavoriteEmotes, i)
+				SaveConfig(false)
+				return false
+			end
+		end
+		table.insert(savedConfig.FavoriteEmotes, 1, { id = item.id, name = item.name })
+		SaveConfig(false)
+		return true
+	end
+
+	local function toggleFavAnim(item)
+		local s = tostring(item.id)
+		for i, f in ipairs(savedConfig.FavoriteAnimations) do
+			if tostring(f.id) == s then
+				table.remove(savedConfig.FavoriteAnimations, i)
+				SaveConfig(false)
+				return false
+			end
+		end
+		table.insert(savedConfig.FavoriteAnimations, 1, { id = item.id, name = item.name, bundledItems = item.bundledItems })
+		SaveConfig(false)
+		return true
+	end
+
+	local function findEmoteById(idNum)
+		for _, e in ipairs(emotesList) do if tonumber(e.id) == idNum then return e end end
+		for _, e in ipairs(savedConfig.FavoriteEmotes) do if tonumber(e.id) == idNum then return e end end
+		return nil
+	end
+	local function findAnimById(idNum)
+		for _, a in ipairs(animsList) do if tonumber(a.id) == idNum then return a end end
+		for _, a in ipairs(savedConfig.FavoriteAnimations) do if tonumber(a.id) == idNum then return a end end
+		return nil
+	end
+
+	FUI.EmoteWheelBridge = {
+		HasEntry = function(key)
+			if key:sub(1, 6) == "EMOTE:" then
+				local idNum = tonumber(key:sub(7))
+				return idNum ~= nil and idNum > 0
+			elseif key:sub(1, 5) == "ANIM:" then
+				local idNum = tonumber(key:sub(6))
+				return idNum ~= nil and findAnimById(idNum) ~= nil
+			end
+			return false
+		end,
+		GetWheelItem = function(key)
+			if key:sub(1, 6) == "EMOTE:" then
+				local idNum = tonumber(key:sub(7))
+				if not idNum then return nil end
+				local e = findEmoteById(idNum)
+				local nm = (e and e.name) or ("Emote " .. tostring(idNum))
+				return {
+					Name = key,
+					ShortName = E.Sparkle .. " " .. nm,
+					Reg = {
+						GetState = function() return currentPlayingEmoteId == idNum and currentEmoteTrack ~= nil and currentEmoteTrack.IsPlaying end,
+						Toggle = function()
+							if currentPlayingEmoteId == idNum and currentEmoteTrack and currentEmoteTrack.IsPlaying then
+								stopActiveEmote()
+							else
+								playEmoteById(idNum)
+							end
+						end
+					}
+				}
+			elseif key:sub(1, 5) == "ANIM:" then
+				local idNum = tonumber(key:sub(6))
+				local a = idNum and findAnimById(idNum)
+				if not a then return nil end
+				return {
+					Name = key,
+					ShortName = E.Rocket .. " " .. tostring(a.name or "Anim"),
+					Reg = {
+						GetState = function() return currentAppliedAnimId == a.id end,
+						Toggle = function() task.spawn(applyAnimationPack, a) end
+					}
+				}
+			end
+			return nil
+		end
+	}
+
+	CreateSectionHeader(Tab12_Emotes, "Emote & Animation Controls (Zero Popups | Pin ★ Fav or ○ Wheel)", 1)
+	CreateToggle(Tab12_Emotes, "Walk While Emoting (Keep Emote Active While Moving)", Config.EmoteWalkEnabled == true, 2, function(state)
+		Config.EmoteWalkEnabled = state
+		savedConfig.Settings.EmoteWalkEnabled = state
+		SaveConfig(false)
+	end)
+	CreateToggle(Tab12_Emotes, "Auto-Reload Last Animation Pack on Respawn", Config.EmoteAutoReload == true, 3, function(state)
+		Config.EmoteAutoReload = state
+		savedConfig.Settings.EmoteAutoReload = state
+		SaveConfig(false)
+	end)
+	CreateSlider(Tab12_Emotes, "Emote Playback Speed (10 = 1.0x | 50 = 5.0x)", 1, 50, math.clamp(tonumber(Config.EmoteSpeed) or 10, 1, 50), 4, function(val)
+		Config.EmoteSpeed = val
+		savedConfig.Settings.EmoteSpeed = val
+		if currentEmoteTrack and currentEmoteTrack.IsPlaying then
+			pcall(function() currentEmoteTrack:AdjustSpeed(val / 10) end)
+		end
+		SaveConfig(false)
+	end)
+
+	local ModeCard = CreateCard(Tab12_Emotes, 46, 5)
+	local modeEmotesBtn = MakeButton(ModeCard, UDim2.new(0.24, -6, 0, 30), UDim2.new(0, 8, 0.5, -15), E.Sparkle .. " Emotes", nil, 11)
+	local modeAnimsBtn = MakeButton(ModeCard, UDim2.new(0.26, -6, 0, 30), UDim2.new(0.24, 6, 0.5, -15), E.Rocket .. " Animations", nil, 11)
+	local modeFavBtn = MakeButton(ModeCard, UDim2.new(0.20, -6, 0, 30), UDim2.new(0.50, 4, 0.5, -15), "★ Favs", nil, 11)
+	local randomBtn = MakeButton(ModeCard, UDim2.new(0.15, -4, 0, 30), UDim2.new(0.70, 2, 0.5, -15), "Random", "AccentDark", 10)
+	local stopBtn = Instance.new("TextButton", ModeCard)
+	stopBtn.Size = UDim2.new(0.15, -10, 0, 30)
+	stopBtn.Position = UDim2.new(0.85, 2, 0.5, -15)
+	stopBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+	stopBtn.BorderSizePixel = 0
+	stopBtn.Font = Enum.Font.GothamBold
+	stopBtn.TextSize = 10
+	stopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	stopBtn.Text = E.Stop .. " Stop"
+	AddCorner(stopBtn, 6)
+	FUI.AttachSpringAndRipple(stopBtn)
+
+	local SearchCard = CreateCard(Tab12_Emotes, 46, 6)
+	local emoteSearchBox = Instance.new("TextBox", SearchCard)
+	emoteSearchBox.Size = UDim2.new(1, -118, 0, 30)
+	emoteSearchBox.Position = UDim2.new(0, 8, 0.5, -15)
+	emoteSearchBox.BackgroundTransparency = 0.15
+	emoteSearchBox.BorderSizePixel = 0
+	emoteSearchBox.ClearTextOnFocus = false
+	emoteSearchBox.Font = Enum.Font.Gotham
+	emoteSearchBox.TextSize = 12
+	emoteSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+	emoteSearchBox.PlaceholderText = "Search emote/animation name or paste Asset ID..."
+	emoteSearchBox.Text = ""
+	RegisterThemeObject(emoteSearchBox, "BackgroundColor3", "PanelBg")
+	RegisterThemeObject(emoteSearchBox, "TextColor3", "TextPrimary")
+	RegisterThemeObject(emoteSearchBox, "PlaceholderColor3", "TextSecondary")
+	AddCorner(emoteSearchBox, 6)
+	local esPad = Instance.new("UIPadding", emoteSearchBox)
+	esPad.PaddingLeft = UDim.new(0, 8)
+	local playIdBtn = MakeButton(SearchCard, UDim2.new(0, 98, 0, 30), UDim2.new(1, -104, 0.5, -15), E.Play .. " Play ID", "Accent", 11)
+
+	local PageCard = CreateCard(Tab12_Emotes, 40, 7)
+	local prevBtn = MakeButton(PageCard, UDim2.new(0, 68, 0, 26), UDim2.new(0, 8, 0.5, -13), "< Prev", "PanelBg", 11)
+	local nextBtn = MakeButton(PageCard, UDim2.new(0, 68, 0, 26), UDim2.new(1, -76, 0.5, -13), "Next >", "PanelBg", 11)
+	local pageInfoLbl = MakeLabel(PageCard, UDim2.new(1, -164, 1, 0), UDim2.new(0, 82, 0, 0), "Loading catalog...", Enum.Font.GothamBold, 11, "Accent", Enum.TextXAlignment.Center)
+	pageInfoLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local GridContainer = Instance.new("Frame", Tab12_Emotes)
+	GridContainer.LayoutOrder = 8
+	GridContainer.Size = UDim2.new(1, 0, 0, 0)
+	GridContainer.AutomaticSize = Enum.AutomaticSize.Y
+	GridContainer.BackgroundTransparency = 1
+	local GridLayout = Instance.new("UIGridLayout", GridContainer)
+	GridLayout.CellSize = UDim2.new(0.5, -4, 0, 56)
+	GridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+	GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local function getFilteredCatalog()
+		local source = (currentMode == "animation") and animsList or emotesList
+		local favs = (currentMode == "animation") and savedConfig.FavoriteAnimations or savedConfig.FavoriteEmotes
+		local q = tostring(searchText or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+		local words = {}
+		for w in q:gmatch("%S+") do table.insert(words, w) end
+		local function matches(item)
+			if q == "" then return true end
+			local idStr = tostring(item.id or "")
+			if idStr == q then return true end
+			local nm = tostring(item.name or ""):lower()
+			for _, w in ipairs(words) do
+				if not nm:find(w, 1, true) then return false end
+			end
+			return true
+		end
+		local out = {}
+		local seen = {}
+		for _, f in ipairs(favs) do
+			if f and f.id and matches(f) then
+				seen[tostring(f.id)] = true
+				table.insert(out, f)
+			end
+		end
+		if not favOnlyMode then
+			for _, it in ipairs(source) do
+				if it and it.id and not seen[tostring(it.id)] and matches(it) then
+					table.insert(out, it)
+				end
+			end
+		end
+		return out
+	end
+
+	local function syncModeButtons()
+		local th = GetTheme()
+		FUI.TweenButtonState(modeEmotesBtn, (currentMode == "emote") and th.Accent or th.PanelBg, Color3.fromRGB(255, 255, 255), currentMode == "emote")
+		FUI.TweenButtonState(modeAnimsBtn, (currentMode == "animation") and th.Accent or th.PanelBg, Color3.fromRGB(255, 255, 255), currentMode == "animation")
+		FUI.TweenButtonState(modeFavBtn, favOnlyMode and Color3.fromRGB(230, 175, 32) or th.PanelBg, favOnlyMode and Color3.fromRGB(20, 20, 24) or th.TextPrimary, favOnlyMode)
+	end
+
+	local function RebuildEmotesGrid()
+		if not GridContainer or not GridContainer.Parent then return end
+		for _, ch in ipairs(GridContainer:GetChildren()) do
+			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
+		end
+		syncModeButtons()
+		local list = getFilteredCatalog()
+		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		currentPage = math.clamp(currentPage, 1, totalPages)
+		local modeLabel = (currentMode == "animation") and "Animations" or "Emotes"
+		pageInfoLbl.Text = string.format("%s  |  Page %d / %d  (%d)", modeLabel, currentPage, totalPages, #list)
+		local th = GetTheme()
+		local startIdx = ((currentPage - 1) * ITEMS_PER_PAGE) + 1
+		local endIdx = math.min(startIdx + ITEMS_PER_PAGE - 1, #list)
+		for i = startIdx, endIdx do
+			local item = list[i]
+			local cell = Instance.new("Frame", GridContainer)
+			cell.LayoutOrder = i
+			cell.BackgroundColor3 = th.CardBg
+			cell.BackgroundTransparency = 0.12
+			cell.BorderSizePixel = 0
+			cell.ClipsDescendants = true
+			AddCorner(cell, 8)
+			local cst = Instance.new("UIStroke", cell)
+			cst.Thickness = 1
+			cst.Transparency = 0.55
+			cst.Color = th.Stroke
+
+			local thumb = Instance.new("ImageLabel", cell)
+			thumb.Size = UDim2.new(0, 44, 0, 44)
+			thumb.Position = UDim2.new(0, 6, 0.5, -22)
+			thumb.BackgroundColor3 = th.PanelBg
+			thumb.BackgroundTransparency = 0.2
+			thumb.BorderSizePixel = 0
+			thumb.ScaleType = Enum.ScaleType.Fit
+			thumb.Image = (currentMode == "animation")
+				and ("rbxthumb://type=BundleThumbnail&id=" .. tostring(item.id) .. "&w=150&h=150")
+				or ("rbxthumb://type=Asset&id=" .. tostring(item.id) .. "&w=150&h=150")
+			AddCorner(thumb, 7)
+
+			local playArea = Instance.new("TextButton", cell)
+			playArea.Size = UDim2.new(1, -86, 1, -8)
+			playArea.Position = UDim2.new(0, 56, 0, 4)
+			playArea.BackgroundTransparency = 1
+			playArea.BorderSizePixel = 0
+			playArea.Text = ""
+			playArea.AutoButtonColor = false
+			playArea.ZIndex = 4
+
+			local nmLbl = Instance.new("TextLabel", playArea)
+			nmLbl.Size = UDim2.new(1, 0, 0, 22)
+			nmLbl.Position = UDim2.new(0, 0, 0, 4)
+			nmLbl.BackgroundTransparency = 1
+			nmLbl.Font = Enum.Font.GothamBold
+			nmLbl.TextSize = 11
+			nmLbl.TextColor3 = th.TextPrimary
+			nmLbl.TextXAlignment = Enum.TextXAlignment.Left
+			nmLbl.TextTruncate = Enum.TextTruncate.AtEnd
+			nmLbl.Text = tostring(item.name or ("Item " .. tostring(item.id)))
+
+			local idLbl = Instance.new("TextLabel", playArea)
+			idLbl.Size = UDim2.new(1, 0, 0, 16)
+			idLbl.Position = UDim2.new(0, 0, 0, 26)
+			idLbl.BackgroundTransparency = 1
+			idLbl.Font = Enum.Font.Code
+			idLbl.TextSize = 10
+			idLbl.TextColor3 = th.Accent
+			idLbl.TextXAlignment = Enum.TextXAlignment.Left
+			idLbl.Text = (currentMode == "animation" and "Pack #" or "ID: ") .. tostring(item.id)
+
+			playArea.MouseButton1Click:Connect(function()
+				cst.Color = th.Accent
+				cst.Transparency = 0.0
+				task.delay(0.35, function() if cst and cst.Parent then cst.Color = th.Stroke cst.Transparency = 0.55 end end)
+				if currentMode == "animation" then
+					task.spawn(applyAnimationPack, item)
+				else
+					playEmoteById(item.id)
+				end
+			end)
+
+			local isFav = (currentMode == "animation") and isFavAnim(item.id) or isFavEmote(item.id)
+			local favBtn = Instance.new("TextButton", cell)
+			favBtn.Size = UDim2.new(0, 22, 0, 22)
+			favBtn.Position = UDim2.new(1, -26, 0, 5)
+			favBtn.BackgroundTransparency = 1
+			favBtn.BorderSizePixel = 0
+			favBtn.Font = Enum.Font.GothamBold
+			favBtn.TextSize = 15
+			favBtn.Text = isFav and STAR_FILLED or STAR_EMPTY
+			favBtn.TextColor3 = isFav and STAR_GOLD or th.TextSecondary
+			favBtn.ZIndex = 5
+			favBtn.MouseButton1Click:Connect(function()
+				if currentMode == "animation" then toggleFavAnim(item) else toggleFavEmote(item) end
+				RebuildEmotesGrid()
+			end)
+
+			local wheelKey = (currentMode == "animation" and "ANIM:" or "EMOTE:") .. tostring(item.id)
+			if FUI.CreateRadialCircleButton then
+				FUI.CreateRadialCircleButton(cell, wheelKey, UDim2.new(1, -26, 0, 29), UDim2.new(0, 22, 0, 22), tostring(item.name or "Emote"))
+			end
+		end
+	end
+
+	table.insert(ThemeObjects.CustomCallbacks, function()
+		if ActiveTabName == "Emotes & Anims" then RebuildEmotesGrid() else syncModeButtons() end
+	end)
+
+	modeEmotesBtn.MouseButton1Click:Connect(function()
+		currentMode = "emote"
+		currentPage = 1
+		RebuildEmotesGrid()
+	end)
+	modeAnimsBtn.MouseButton1Click:Connect(function()
+		currentMode = "animation"
+		currentPage = 1
+		RebuildEmotesGrid()
+	end)
+	modeFavBtn.MouseButton1Click:Connect(function()
+		favOnlyMode = not favOnlyMode
+		currentPage = 1
+		RebuildEmotesGrid()
+	end)
+	prevBtn.MouseButton1Click:Connect(function()
+		local list = getFilteredCatalog()
+		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		currentPage = (currentPage <= 1) and totalPages or (currentPage - 1)
+		RebuildEmotesGrid()
+	end)
+	nextBtn.MouseButton1Click:Connect(function()
+		local list = getFilteredCatalog()
+		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		currentPage = (currentPage >= totalPages) and 1 or (currentPage + 1)
+		RebuildEmotesGrid()
+	end)
+	randomBtn.MouseButton1Click:Connect(function()
+		local list = getFilteredCatalog()
+		if #list == 0 then return end
+		local pick = list[math.random(1, #list)]
+		if pick then
+			if currentMode == "animation" then
+				task.spawn(applyAnimationPack, pick)
+			else
+				playEmoteById(pick.id)
+			end
+		end
+	end)
+	stopBtn.MouseButton1Click:Connect(function()
+		stopActiveEmote()
+	end)
+	playIdBtn.MouseButton1Click:Connect(function()
+		local raw = tostring(emoteSearchBox.Text or ""):match("(%d+)")
+		local numId = raw and tonumber(raw)
+		if numId and numId > 0 then
+			playEmoteById(numId)
+			playIdBtn.Text = E.Check .. " Playing"
+			task.delay(0.9, function() if playIdBtn and playIdBtn.Parent then playIdBtn.Text = E.Play .. " Play ID" end end)
+		end
+	end)
+
+	local searchToken = 0
+	emoteSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+		searchText = emoteSearchBox.Text or ""
+		searchToken = searchToken + 1
+		local tk = searchToken
+		task.delay(0.08, function()
+			if tk == searchToken and not isClosingPermanently then
+				currentPage = 1
+				RebuildEmotesGrid()
+			end
+		end)
+	end)
+
+	local function bindEmoteCharacter(ch)
+		if not ch then return end
+		emoteToolEquipped = (ch:FindFirstChildOfClass("Tool") ~= nil)
+		table.insert(Connections, ch.ChildAdded:Connect(function(c) if c:IsA("Tool") then emoteToolEquipped = true end end))
+		table.insert(Connections, ch.ChildRemoved:Connect(function(c) if c:IsA("Tool") and not ch:FindFirstChildOfClass("Tool") then emoteToolEquipped = false end end))
+		if Config.EmoteAutoReload and type(savedConfig.LastPlayedAnimation) == "table" and savedConfig.LastPlayedAnimation.id then
+			task.spawn(function()
+				ch:WaitForChild("Animate", 8)
+				ch:WaitForChild("HumanoidRootPart", 8)
+				task.wait(0.35)
+				if ch.Parent and Config.EmoteAutoReload and not isClosingPermanently then
+					applyAnimationPack(savedConfig.LastPlayedAnimation)
+				end
+			end)
+		end
+	end
+	if player.Character then bindEmoteCharacter(player.Character) end
+	table.insert(Connections, player.CharacterAdded:Connect(bindEmoteCharacter))
+
+	table.insert(Connections, RunService.Stepped:Connect(function()
+		if not currentEmoteTrack or isClosingPermanently then return end
+		if not currentEmoteTrack.IsPlaying then currentEmoteTrack = nil currentPlayingEmoteId = nil return end
+		if emoteToolEquipped or (not Config.EmoteWalkEnabled) then
+			local ch = player.Character
+			local hm = ch and ch:FindFirstChildOfClass("Humanoid")
+			if hm and hm.MoveDirection.Magnitude > 0.05 then
+				stopActiveEmote()
+			end
+		end
+	end))
+
+	local function loadEmoteCatalogs()
+		for _, b in ipairs(BUILTIN_EMOTES) do table.insert(emotesList, b) end
+		pcall(function()
+			if SafeIsFile(EMOTE_CACHE_FILE) then
+				local dec = HttpService:JSONDecode(SafeReadFile(EMOTE_CACHE_FILE))
+				if type(dec) == "table" and #dec > 0 then emotesList = dec emoteCatalogLoaded = true end
+			end
+			if SafeIsFile(ANIM_CACHE_FILE) then
+				local dec = HttpService:JSONDecode(SafeReadFile(ANIM_CACHE_FILE))
+				if type(dec) == "table" and #dec > 0 then animsList = dec animCatalogLoaded = true end
+			end
+		end)
+		RebuildEmotesGrid()
+		task.spawn(function()
+			local okE, rawE = pcall(function() return game:HttpGet("https://raw.githubusercontent.com/7yd7/sniper-Emote/refs/heads/test/EmoteSniper.json") end)
+			if okE and type(rawE) == "string" and #rawE > 0 then
+				local okD, dec = pcall(function() return HttpService:JSONDecode(rawE) end)
+				if okD and type(dec) == "table" and type(dec.data) == "table" then
+					local fresh = {}
+					for _, it in ipairs(dec.data) do
+						local id = tonumber(it.id)
+						if id and id > 0 then table.insert(fresh, { id = id, name = tostring(it.name or ("Emote " .. id)) }) end
+					end
+					if #fresh > 0 then
+						emotesList = fresh
+						emoteCatalogLoaded = true
+						pcall(function() SafeWriteFile(EMOTE_CACHE_FILE, HttpService:JSONEncode(fresh)) end)
+						if currentMode == "emote" then RebuildEmotesGrid() end
+					end
+				end
+			end
+		end)
+		task.spawn(function()
+			local freshAnims = {}
+			local seenA = {}
+			local urls = {
+				"https://raw.githubusercontent.com/7yd7/sniper-Emote/refs/heads/test/AnimationSniper.json",
+				"https://raw.githubusercontent.com/7yd7/sniper-Emote/refs/heads/test/AnimationSniperoffsale.json"
+			}
+			for _, u in ipairs(urls) do
+				local okA, rawA = pcall(function() return game:HttpGet(u) end)
+				if okA and type(rawA) == "string" and #rawA > 0 then
+					local okD, dec = pcall(function() return HttpService:JSONDecode(rawA) end)
+					if okD and type(dec) == "table" and type(dec.data) == "table" then
+						for _, it in ipairs(dec.data) do
+							local id = tonumber(it.id)
+							if id and id > 0 and not seenA[id] then
+								seenA[id] = true
+								table.insert(freshAnims, { id = id, name = tostring(it.name or ("Animation " .. id)), bundledItems = it.bundledItems })
+							end
+						end
+					end
+				end
+			end
+			if #freshAnims > 0 then
+				animsList = freshAnims
+				animCatalogLoaded = true
+				pcall(function() SafeWriteFile(ANIM_CACHE_FILE, HttpService:JSONEncode(freshAnims)) end)
+				if currentMode == "animation" then RebuildEmotesGrid() end
+			end
+		end)
+	end
+	FUI.RefreshEmotesTab = RebuildEmotesGrid
+	loadEmoteCatalogs()
+end
+if FUI.SetLoadProgress then FUI.SetLoadProgress(84, "Loading Emotes & Animation Packs...") end
+xpcall(SetupTab12, warn)
 local function SetupTab9()
 local listUpdateDelay = 5
 local notificationsEnabled = true
@@ -12287,6 +13153,14 @@ vars.renameAvatarFile = function(data, newName)
 	if not data then return false, "No avatar selected." end
 	local displayName = tostring(newName or ""):gsub("^%s+", ""):gsub("%s+$", "")
 	if displayName == "" then return false, "The new name cannot be empty." end
+	local avIdx = nil
+	for idx, item in ipairs(vars.ui.savedAvatars or {}) do
+		if item == data then
+			avIdx = idx
+			break
+		end
+	end
+	local oldWheelKey = "AVATAR:" .. tostring(data.FileName or data.Name or data.DisplayName or data.UserId or avIdx or "")
 	data.DisplayName = displayName
 
 	local fileName = vars.sanitizeAvatarFileName(displayName)
@@ -12303,6 +13177,10 @@ vars.renameAvatarFile = function(data, newName)
 		if oldPath and oldPath:lower() ~= newPath:lower() and type(delfile) == "function" then
 			pcall(function() delfile(oldPath) end)
 		end
+	end
+	local newWheelKey = "AVATAR:" .. tostring(data.FileName or data.Name or data.DisplayName or data.UserId or avIdx or "")
+	if FUI.RenameRadialWheelItem and oldWheelKey ~= newWheelKey then
+		FUI.RenameRadialWheelItem(oldWheelKey, newWheelKey)
 	end
 	vars.syncAllSavedAvatarsToDisk()
 	return true, data.FilePath or displayName
@@ -17663,6 +18541,7 @@ local function ShutdownInstance(immediate) if isClosingPermanently then return e
 	if FUI.ClearAllNotifications then pcall(FUI.ClearAllNotifications) end
 	if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
 	if FUI.SetBinocularsZoom then pcall(FUI.SetBinocularsZoom, false) end
+	if FUI.StopActiveEmote then pcall(FUI.StopActiveEmote) end
 	if FUI._RadialMoveConn then pcall(function() FUI._RadialMoveConn:Disconnect() end) FUI._RadialMoveConn = nil end
 	if FUI._RadialSpinConn then pcall(function() FUI._RadialSpinConn:Disconnect() end) FUI._RadialSpinConn = nil end
 	FUI.IsWindowUnfocused = false
@@ -17798,6 +18677,7 @@ FUI.SoftResetAll = function()
 	end)
 	if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
 	if FUI.SetBinocularsZoom then pcall(FUI.SetBinocularsZoom, false) end
+	if FUI.StopActiveEmote then pcall(FUI.StopActiveEmote) end
 	if FUI.SetWindowPowerSaverState then pcall(FUI.SetWindowPowerSaverState, false) end
 	pcall(function() RunService:Set3dRenderingEnabled(true) end)
 	ResetCharacterPhysicsCleanly()
