@@ -10371,38 +10371,83 @@ local function SetupTab12()
 	GridLayout.CellPadding = UDim2.new(0, 8, 0, 8)
 	GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local function getFilteredCatalog()
-		local source = (currentMode == "animation") and animsList or emotesList
-		local favs = (currentMode == "animation") and savedConfig.FavoriteAnimations or savedConfig.FavoriteEmotes
+	local FavSplitContainer = Instance.new("Frame", Tab12_Emotes)
+	FavSplitContainer.LayoutOrder = 9
+	FavSplitContainer.Size = UDim2.new(1, 0, 0, 0)
+	FavSplitContainer.AutomaticSize = Enum.AutomaticSize.Y
+	FavSplitContainer.BackgroundTransparency = 1
+	FavSplitContainer.Visible = false
+
+	local FavEmotesCol = Instance.new("Frame", FavSplitContainer)
+	FavEmotesCol.Size = UDim2.new(0.5, -4, 0, 0)
+	FavEmotesCol.Position = UDim2.new(0, 0, 0, 0)
+	FavEmotesCol.AutomaticSize = Enum.AutomaticSize.Y
+	FavEmotesCol.BackgroundTransparency = 1
+	local FavEmotesLayout = Instance.new("UIListLayout", FavEmotesCol)
+	FavEmotesLayout.Padding = UDim.new(0, 8)
+	FavEmotesLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local FavAnimsCol = Instance.new("Frame", FavSplitContainer)
+	FavAnimsCol.Size = UDim2.new(0.5, -4, 0, 0)
+	FavAnimsCol.Position = UDim2.new(0.5, 4, 0, 0)
+	FavAnimsCol.AutomaticSize = Enum.AutomaticSize.Y
+	FavAnimsCol.BackgroundTransparency = 1
+	local FavAnimsLayout = Instance.new("UIListLayout", FavAnimsCol)
+	FavAnimsLayout.Padding = UDim.new(0, 8)
+	FavAnimsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local function filterItemsByQuery(sourceList)
 		local q = tostring(searchText or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
 		local words = {}
 		for w in q:gmatch("%S+") do table.insert(words, w) end
-		local function matches(item)
-			if q == "" then return true end
-			local idStr = tostring(item.id or "")
-			if idStr == q then return true end
-			local nm = tostring(item.name or ""):lower()
-			for _, w in ipairs(words) do
-				if not nm:find(w, 1, true) then return false end
-			end
-			return true
-		end
 		local out = {}
 		local seen = {}
-		for _, f in ipairs(favs) do
-			if f and f.id and matches(f) then
-				seen[tostring(f.id)] = true
-				table.insert(out, f)
-			end
-		end
-		if not favOnlyMode then
-			for _, it in ipairs(source) do
-				if it and it.id and not seen[tostring(it.id)] and matches(it) then
-					table.insert(out, it)
+		for _, item in ipairs(sourceList or {}) do
+			if item and item.id and not seen[tostring(item.id)] then
+				local ok = true
+				if q ~= "" and tostring(item.id) ~= q then
+					local nm = tostring(item.name or ""):lower()
+					for _, w in ipairs(words) do
+						if not nm:find(w, 1, true) then ok = false break end
+					end
+				end
+				if ok then
+					seen[tostring(item.id)] = true
+					table.insert(out, item)
 				end
 			end
 		end
 		return out
+	end
+
+	local function getFilteredCatalog()
+		local source = (currentMode == "animation") and animsList or emotesList
+		local favs = (currentMode == "animation") and savedConfig.FavoriteAnimations or savedConfig.FavoriteEmotes
+		local favFiltered = filterItemsByQuery(favs)
+		if favOnlyMode then return favFiltered end
+		local out = {}
+		local seen = {}
+		for _, f in ipairs(favFiltered) do
+			seen[tostring(f.id)] = true
+			table.insert(out, f)
+		end
+		for _, it in ipairs(filterItemsByQuery(source)) do
+			if not seen[tostring(it.id)] then
+				table.insert(out, it)
+			end
+		end
+		return out
+	end
+
+	local function getTotalPagesForCurrentView()
+		if favOnlyMode then
+			local fe = filterItemsByQuery(savedConfig.FavoriteEmotes)
+			local fa = filterItemsByQuery(savedConfig.FavoriteAnimations)
+			local maxCol = math.max(#fe, #fa)
+			return math.max(1, math.ceil(maxCol / 12))
+		end
+		local list = getFilteredCatalog()
+		return math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
 	end
 
 	local function syncModeButtons()
@@ -10414,107 +10459,200 @@ local function SetupTab12()
 		FUI.TweenButtonState(modeFavBtn, favOnlyMode and Color3.fromRGB(230, 175, 32) or th.PanelBg, favOnlyMode and Color3.fromRGB(20, 20, 24) or th.TextPrimary, favOnlyMode)
 	end
 
-	local function RebuildEmotesGrid()
+	local RebuildEmotesGrid
+	local function buildCatalogCell(parentFrame, item, isAnim, layoutOrder, th, fixedHeight)
+		local cell = Instance.new("Frame", parentFrame)
+		cell.LayoutOrder = layoutOrder
+		if fixedHeight then cell.Size = UDim2.new(1, 0, 0, fixedHeight) end
+		cell.BackgroundColor3 = th.CardBg
+		cell.BackgroundTransparency = 0.12
+		cell.BorderSizePixel = 0
+		cell.ClipsDescendants = true
+		AddCorner(cell, 8)
+		local cst = Instance.new("UIStroke", cell)
+		cst.Thickness = 1
+		cst.Transparency = 0.55
+		cst.Color = th.Stroke
+
+		local thumb = Instance.new("ImageLabel", cell)
+		thumb.Size = UDim2.new(0, 44, 0, 44)
+		thumb.Position = UDim2.new(0, 6, 0.5, -22)
+		thumb.BackgroundColor3 = th.PanelBg
+		thumb.BackgroundTransparency = 0.2
+		thumb.BorderSizePixel = 0
+		thumb.ScaleType = Enum.ScaleType.Fit
+		thumb.Image = isAnim
+			and ("rbxthumb://type=BundleThumbnail&id=" .. tostring(item.id) .. "&w=150&h=150")
+			or ("rbxthumb://type=Asset&id=" .. tostring(item.id) .. "&w=150&h=150")
+		AddCorner(thumb, 7)
+
+		local playArea = Instance.new("TextButton", cell)
+		playArea.Size = UDim2.new(1, -86, 1, -8)
+		playArea.Position = UDim2.new(0, 56, 0, 4)
+		playArea.BackgroundTransparency = 1
+		playArea.BorderSizePixel = 0
+		playArea.Text = ""
+		playArea.AutoButtonColor = false
+		playArea.ZIndex = 4
+
+		local nmLbl = Instance.new("TextLabel", playArea)
+		nmLbl.Size = UDim2.new(1, 0, 0, 22)
+		nmLbl.Position = UDim2.new(0, 0, 0, 4)
+		nmLbl.BackgroundTransparency = 1
+		nmLbl.Font = Enum.Font.GothamBold
+		nmLbl.TextSize = 11
+		nmLbl.TextColor3 = th.TextPrimary
+		nmLbl.TextXAlignment = Enum.TextXAlignment.Left
+		nmLbl.TextTruncate = Enum.TextTruncate.AtEnd
+		nmLbl.Text = tostring(item.name or ("Item " .. tostring(item.id)))
+
+		local idLbl = Instance.new("TextLabel", playArea)
+		idLbl.Size = UDim2.new(1, 0, 0, 16)
+		idLbl.Position = UDim2.new(0, 0, 0, 26)
+		idLbl.BackgroundTransparency = 1
+		idLbl.Font = Enum.Font.Code
+		idLbl.TextSize = 10
+		idLbl.TextColor3 = th.Accent
+		idLbl.TextXAlignment = Enum.TextXAlignment.Left
+		idLbl.Text = (isAnim and "Pack #" or "ID: ") .. tostring(item.id)
+
+		playArea.MouseButton1Click:Connect(function()
+			cst.Color = th.Accent
+			cst.Transparency = 0.0
+			task.delay(0.35, function() if cst and cst.Parent then cst.Color = th.Stroke cst.Transparency = 0.55 end end)
+			if isAnim then
+				task.spawn(applyAnimationPack, item)
+			else
+				playEmoteById(item.id)
+			end
+		end)
+
+		local isFav = isAnim and isFavAnim(item.id) or isFavEmote(item.id)
+		local favBtn = Instance.new("TextButton", cell)
+		favBtn.Size = UDim2.new(0, 22, 0, 22)
+		favBtn.Position = UDim2.new(1, -26, 0, 5)
+		favBtn.BackgroundTransparency = 1
+		favBtn.BorderSizePixel = 0
+		favBtn.Font = Enum.Font.GothamBold
+		favBtn.TextSize = 15
+		favBtn.Text = isFav and STAR_FILLED or STAR_EMPTY
+		favBtn.TextColor3 = isFav and STAR_GOLD or th.TextSecondary
+		favBtn.ZIndex = 5
+		favBtn.MouseButton1Click:Connect(function()
+			if isAnim then toggleFavAnim(item) else toggleFavEmote(item) end
+			RebuildEmotesGrid()
+		end)
+
+		local wheelKey = (isAnim and "ANIM:" or "EMOTE:") .. tostring(item.id)
+		if FUI.CreateRadialCircleButton then
+			FUI.CreateRadialCircleButton(cell, wheelKey, UDim2.new(1, -26, 0, 29), UDim2.new(0, 22, 0, 22), tostring(item.name or "Emote"))
+		end
+	end
+
+	local function buildFavColumnHeader(parentCol, titleText, th)
+		local hdr = Instance.new("Frame", parentCol)
+		hdr.LayoutOrder = 0
+		hdr.Size = UDim2.new(1, 0, 0, 28)
+		hdr.BackgroundColor3 = th.PanelBg
+		hdr.BackgroundTransparency = 0.15
+		hdr.BorderSizePixel = 0
+		AddCorner(hdr, 7)
+		local bar = Instance.new("Frame", hdr)
+		bar.Size = UDim2.new(0, 3, 1, -10)
+		bar.Position = UDim2.new(0, 6, 0, 5)
+		bar.BackgroundColor3 = STAR_GOLD
+		bar.BorderSizePixel = 0
+		AddCorner(bar, 2)
+		local lbl = Instance.new("TextLabel", hdr)
+		lbl.Size = UDim2.new(1, -18, 1, 0)
+		lbl.Position = UDim2.new(0, 14, 0, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextSize = 11
+		lbl.TextColor3 = th.TextPrimary
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextTruncate = Enum.TextTruncate.AtEnd
+		lbl.Text = titleText
+	end
+
+	local function buildFavEmptyCard(parentCol, emptyMsg, th)
+		local card = Instance.new("Frame", parentCol)
+		card.LayoutOrder = 1
+		card.Size = UDim2.new(1, 0, 0, 56)
+		card.BackgroundColor3 = th.CardBg
+		card.BackgroundTransparency = 0.35
+		card.BorderSizePixel = 0
+		AddCorner(card, 8)
+		local st = Instance.new("UIStroke", card)
+		st.Thickness = 1
+		st.Transparency = 0.65
+		st.Color = th.Stroke
+		local lbl = Instance.new("TextLabel", card)
+		lbl.Size = UDim2.new(1, -16, 1, 0)
+		lbl.Position = UDim2.new(0, 8, 0, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamSemibold
+		lbl.TextSize = 11
+		lbl.TextColor3 = th.TextSecondary
+		lbl.TextWrapped = true
+		lbl.Text = emptyMsg
+	end
+
+	RebuildEmotesGrid = function()
 		if not GridContainer or not GridContainer.Parent then return end
 		for _, ch in ipairs(GridContainer:GetChildren()) do
 			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
 		end
+		for _, ch in ipairs(FavEmotesCol:GetChildren()) do
+			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
+		end
+		for _, ch in ipairs(FavAnimsCol:GetChildren()) do
+			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
+		end
 		syncModeButtons()
+		local th = GetTheme()
+		if favOnlyMode then
+			GridContainer.Visible = false
+			FavSplitContainer.Visible = true
+			local favEmotes = filterItemsByQuery(savedConfig.FavoriteEmotes)
+			local favAnims = filterItemsByQuery(savedConfig.FavoriteAnimations)
+			local perCol = 12
+			local totalPages = math.max(1, math.ceil(math.max(#favEmotes, #favAnims) / perCol))
+			currentPage = math.clamp(currentPage, 1, totalPages)
+			pageInfoLbl.Text = string.format("Favs | %d Emotes | %d Anims (Pg %d/%d)", #favEmotes, #favAnims, currentPage, totalPages)
+			buildFavColumnHeader(FavEmotesCol, E.Sparkle .. " Favorite Emotes (" .. tostring(#favEmotes) .. ")", th)
+			buildFavColumnHeader(FavAnimsCol, E.Rocket .. " Favorite Animations (" .. tostring(#favAnims) .. ")", th)
+			local startIdx = ((currentPage - 1) * perCol) + 1
+			if #favEmotes == 0 then
+				buildFavEmptyCard(FavEmotesCol, "No favorite emotes yet", th)
+			else
+				local endE = math.min(startIdx + perCol - 1, #favEmotes)
+				for i = startIdx, endE do
+					buildCatalogCell(FavEmotesCol, favEmotes[i], false, i, th, 56)
+				end
+			end
+			if #favAnims == 0 then
+				buildFavEmptyCard(FavAnimsCol, "No favorite animation packs yet", th)
+			else
+				local endA = math.min(startIdx + perCol - 1, #favAnims)
+				for i = startIdx, endA do
+					buildCatalogCell(FavAnimsCol, favAnims[i], true, i, th, 56)
+				end
+			end
+			return
+		end
+		FavSplitContainer.Visible = false
+		GridContainer.Visible = true
 		local list = getFilteredCatalog()
 		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
 		currentPage = math.clamp(currentPage, 1, totalPages)
-		local modeLabel = (currentMode == "animation") and (favOnlyMode and "Fav Animations" or "Animations") or (favOnlyMode and "Fav Emotes" or "Emotes")
+		local modeLabel = (currentMode == "animation") and "Animations" or "Emotes"
 		pageInfoLbl.Text = string.format("%s  |  Page %d / %d  (%d)", modeLabel, currentPage, totalPages, #list)
-		local th = GetTheme()
 		local startIdx = ((currentPage - 1) * ITEMS_PER_PAGE) + 1
 		local endIdx = math.min(startIdx + ITEMS_PER_PAGE - 1, #list)
+		local isAnim = (currentMode == "animation")
 		for i = startIdx, endIdx do
-			local item = list[i]
-			local cell = Instance.new("Frame", GridContainer)
-			cell.LayoutOrder = i
-			cell.BackgroundColor3 = th.CardBg
-			cell.BackgroundTransparency = 0.12
-			cell.BorderSizePixel = 0
-			cell.ClipsDescendants = true
-			AddCorner(cell, 8)
-			local cst = Instance.new("UIStroke", cell)
-			cst.Thickness = 1
-			cst.Transparency = 0.55
-			cst.Color = th.Stroke
-
-			local thumb = Instance.new("ImageLabel", cell)
-			thumb.Size = UDim2.new(0, 44, 0, 44)
-			thumb.Position = UDim2.new(0, 6, 0.5, -22)
-			thumb.BackgroundColor3 = th.PanelBg
-			thumb.BackgroundTransparency = 0.2
-			thumb.BorderSizePixel = 0
-			thumb.ScaleType = Enum.ScaleType.Fit
-			thumb.Image = (currentMode == "animation")
-				and ("rbxthumb://type=BundleThumbnail&id=" .. tostring(item.id) .. "&w=150&h=150")
-				or ("rbxthumb://type=Asset&id=" .. tostring(item.id) .. "&w=150&h=150")
-			AddCorner(thumb, 7)
-
-			local playArea = Instance.new("TextButton", cell)
-			playArea.Size = UDim2.new(1, -86, 1, -8)
-			playArea.Position = UDim2.new(0, 56, 0, 4)
-			playArea.BackgroundTransparency = 1
-			playArea.BorderSizePixel = 0
-			playArea.Text = ""
-			playArea.AutoButtonColor = false
-			playArea.ZIndex = 4
-
-			local nmLbl = Instance.new("TextLabel", playArea)
-			nmLbl.Size = UDim2.new(1, 0, 0, 22)
-			nmLbl.Position = UDim2.new(0, 0, 0, 4)
-			nmLbl.BackgroundTransparency = 1
-			nmLbl.Font = Enum.Font.GothamBold
-			nmLbl.TextSize = 11
-			nmLbl.TextColor3 = th.TextPrimary
-			nmLbl.TextXAlignment = Enum.TextXAlignment.Left
-			nmLbl.TextTruncate = Enum.TextTruncate.AtEnd
-			nmLbl.Text = tostring(item.name or ("Item " .. tostring(item.id)))
-
-			local idLbl = Instance.new("TextLabel", playArea)
-			idLbl.Size = UDim2.new(1, 0, 0, 16)
-			idLbl.Position = UDim2.new(0, 0, 0, 26)
-			idLbl.BackgroundTransparency = 1
-			idLbl.Font = Enum.Font.Code
-			idLbl.TextSize = 10
-			idLbl.TextColor3 = th.Accent
-			idLbl.TextXAlignment = Enum.TextXAlignment.Left
-			idLbl.Text = (currentMode == "animation" and "Pack #" or "ID: ") .. tostring(item.id)
-
-			playArea.MouseButton1Click:Connect(function()
-				cst.Color = th.Accent
-				cst.Transparency = 0.0
-				task.delay(0.35, function() if cst and cst.Parent then cst.Color = th.Stroke cst.Transparency = 0.55 end end)
-				if currentMode == "animation" then
-					task.spawn(applyAnimationPack, item)
-				else
-					playEmoteById(item.id)
-				end
-			end)
-
-			local isFav = (currentMode == "animation") and isFavAnim(item.id) or isFavEmote(item.id)
-			local favBtn = Instance.new("TextButton", cell)
-			favBtn.Size = UDim2.new(0, 22, 0, 22)
-			favBtn.Position = UDim2.new(1, -26, 0, 5)
-			favBtn.BackgroundTransparency = 1
-			favBtn.BorderSizePixel = 0
-			favBtn.Font = Enum.Font.GothamBold
-			favBtn.TextSize = 15
-			favBtn.Text = isFav and STAR_FILLED or STAR_EMPTY
-			favBtn.TextColor3 = isFav and STAR_GOLD or th.TextSecondary
-			favBtn.ZIndex = 5
-			favBtn.MouseButton1Click:Connect(function()
-				if currentMode == "animation" then toggleFavAnim(item) else toggleFavEmote(item) end
-				RebuildEmotesGrid()
-			end)
-
-			local wheelKey = (currentMode == "animation" and "ANIM:" or "EMOTE:") .. tostring(item.id)
-			if FUI.CreateRadialCircleButton then
-				FUI.CreateRadialCircleButton(cell, wheelKey, UDim2.new(1, -26, 0, 29), UDim2.new(0, 22, 0, 22), tostring(item.name or "Emote"))
-			end
+			buildCatalogCell(GridContainer, list[i], isAnim, i, th, nil)
 		end
 	end
 
@@ -10546,26 +10684,36 @@ local function SetupTab12()
 		end
 	end)
 	prevBtn.MouseButton1Click:Connect(function()
-		local list = getFilteredCatalog()
-		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		local totalPages = getTotalPagesForCurrentView()
 		currentPage = (currentPage <= 1) and totalPages or (currentPage - 1)
 		RebuildEmotesGrid()
 	end)
 	nextBtn.MouseButton1Click:Connect(function()
-		local list = getFilteredCatalog()
-		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		local totalPages = getTotalPagesForCurrentView()
 		currentPage = (currentPage >= totalPages) and 1 or (currentPage + 1)
 		RebuildEmotesGrid()
 	end)
 	lastBtn.MouseButton1Click:Connect(function()
-		local list = getFilteredCatalog()
-		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		local totalPages = getTotalPagesForCurrentView()
 		if currentPage ~= totalPages then
 			currentPage = totalPages
 			RebuildEmotesGrid()
 		end
 	end)
 	randomBtn.MouseButton1Click:Connect(function()
+		if favOnlyMode then
+			local combined = {}
+			for _, it in ipairs(filterItemsByQuery(savedConfig.FavoriteEmotes)) do
+				table.insert(combined, { item = it, isAnim = false })
+			end
+			for _, it in ipairs(filterItemsByQuery(savedConfig.FavoriteAnimations)) do
+				table.insert(combined, { item = it, isAnim = true })
+			end
+			if #combined == 0 then return end
+			local pick = combined[math.random(1, #combined)]
+			if pick.isAnim then task.spawn(applyAnimationPack, pick.item) else playEmoteById(pick.item.id) end
+			return
+		end
 		local list = getFilteredCatalog()
 		if #list == 0 then return end
 		local pick = list[math.random(1, #list)]
