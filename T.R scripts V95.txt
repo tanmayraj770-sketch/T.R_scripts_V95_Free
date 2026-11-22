@@ -294,6 +294,21 @@ local function ComputeEffectiveTheme(themeName, designName)
 			TextPrimary = Color3.fromRGB(248, 254, 255),
 			TextSecondary = isDef and Color3.fromRGB(145, 240, 255) or base.TextSecondary:Lerp(acc, 0.22)
 		}
+	elseif designName == "Classic" then
+		local isDef = (themeName == "Default" or not themeName)
+		local acc = isDef and Color3.fromRGB(0, 122, 214) or base.Accent
+		local accDark = isDef and Color3.fromRGB(0, 82, 152) or base.AccentDark
+		local strk = isDef and Color3.fromRGB(118, 126, 140) or Color3.fromRGB(118, 126, 140):Lerp(base.Accent, 0.35)
+		return {
+			MainBg = Color3.fromRGB(27, 29, 34),
+			PanelBg = Color3.fromRGB(38, 41, 48),
+			CardBg = Color3.fromRGB(46, 50, 58),
+			Accent = acc,
+			AccentDark = accDark,
+			Stroke = strk,
+			TextPrimary = Color3.fromRGB(244, 246, 250),
+			TextSecondary = Color3.fromRGB(178, 185, 198)
+		}
 	end
 	return base
 end
@@ -1166,25 +1181,36 @@ do
 		end
 	end
 
-	local LOADER_BAR_TI = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local STATUS_SLIDE_TI = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	local POP_TI = TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local LOADER_BAR_TI = TweenInfo.new(0.50, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local STATUS_SLIDE_TI = TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	local POP_TI = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	FUI.SetLoadProgress = function(pct, msg)
 		if isClosingPermanently or not loaderFrame or not loaderFrame.Parent then return end
 		local targetPct = math.clamp(tonumber(pct) or 0, 0, 100)
 		targetLoadPct = targetPct
 		stageCount = math.min(stageCount + 1, 13)
 		stageLbl.Text = string.format("STAGE %d / 13", stageCount)
-		emblemPodScale.Scale = 1.11
+		emblemPodScale.Scale = 1.12
 		FUI.SafeTween(emblemPodScale, POP_TI, { Scale = 1.0 })
-		pctScale.Scale = 1.07
+		pctScale.Scale = 1.08
 		FUI.SafeTween(pctScale, POP_TI, { Scale = 1.0 })
 		if msg then
 			statusLbl.Text = tostring(msg)
-			statusLbl.Position = UDim2.new(0, 22, 0, 0)
+			statusLbl.Position = UDim2.new(0, 26, 0, 0)
 			FUI.SafeTween(statusLbl, STATUS_SLIDE_TI, { Position = UDim2.new(0, 15, 0, 0) })
 		end
 		FUI.SafeTween(barFill, LOADER_BAR_TI, { Size = UDim2.new(targetPct / 100, 0, 1, 0) })
+		local startPct = shownPct
+		local steps = 8
+		for s = 1, steps do
+			if isClosingPermanently or not loaderFrame or not loaderFrame.Parent then return end
+			local cur = startPct + ((targetPct - startPct) * (s / steps))
+			shownPct = cur
+			pctLbl.Text = tostring(math.floor(cur + 0.5)) .. "%"
+			updateSegDots(cur)
+			task.wait(0.065)
+			pcall(function() RunService.Heartbeat:Wait() end)
+		end
 		shownPct = targetPct
 		pctLbl.Text = tostring(math.floor(targetPct + 0.5)) .. "%"
 		updateSegDots(targetPct)
@@ -1202,24 +1228,25 @@ do
 		statusPulse.BackgroundTransparency = 0
 		footerHint.Text = E.Sparkle .. " All modules loaded smoothly — launching hub..."
 		updateSegDots(100)
-		FUI.SafeTween(barFill, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		FUI.SafeTween(barFill, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size = UDim2.new(1, 0, 1, 0)
 		})
-		emblemPodScale.Scale = 1.16
+		emblemPodScale.Scale = 1.18
 		FUI.SafeTween(emblemPodScale, POP_TI, { Scale = 1.0 })
-		TweenService:Create(loaderScale, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.03 }):Play()
-		task.wait(0.18)
+		TweenService:Create(loaderScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.04 }):Play()
+		task.wait(0.55)
 		if loaderAnimConn then pcall(function() loaderAnimConn:Disconnect() end) end
-		TweenService:Create(loaderScale, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.86 }):Play()
-		TweenService:Create(auraScale, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.86 }):Play()
-		TweenService:Create(loaderFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(auraFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(loaderBackdrop, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-		task.delay(0.24, function()
+		TweenService:Create(loaderScale, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.84 }):Play()
+		TweenService:Create(auraScale, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.84 }):Play()
+		TweenService:Create(loaderFrame, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(auraFrame, TweenInfo.new(0.36, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(loaderBackdrop, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.42, function()
 			if loaderFrame and loaderFrame.Parent then loaderFrame:Destroy() end
 			if auraFrame and auraFrame.Parent then auraFrame:Destroy() end
 			if loaderBackdrop and loaderBackdrop.Parent then loaderBackdrop:Destroy() end
 		end)
+		pcall(function() RunService.Heartbeat:Wait() end)
 	end
 	pcall(function() RunService.RenderStepped:Wait() end)
 end
@@ -2705,6 +2732,64 @@ ApplyGuiDesignSurface = function()
 				end
 			end
 		end
+	elseif d == "Classic" then
+		MainFrame.BackgroundTransparency = 0
+		TopBar.BackgroundTransparency = 0
+		Sidebar.BackgroundTransparency = 0
+		ContentContainer.BackgroundTransparency = 0
+		MainStroke.Thickness = 2.0
+		MainStroke.Transparency = 0.0
+		if mainCorner then mainCorner.CornerRadius = UDim.new(0, 2) end
+		if topCorner then topCorner.CornerRadius = UDim.new(0, 2) end
+		if sideCorner then sideCorner.CornerRadius = UDim.new(0, 2) end
+		if contentCorner then contentCorner.CornerRadius = UDim.new(0, 2) end
+
+		LiquidTopSpecular.Visible = false
+		LiquidCausticOverlay.Visible = false
+		CyberTopLaser.Visible = false
+		CyberBottomLaser.Visible = false
+		if LiquidBlurEffect then LiquidBlurEffect.Enabled = false end
+
+		MainGlassGrad.Rotation = 90
+		MainGlassGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(36, 39, 46)),
+			ColorSequenceKeypoint.new(0.22, Color3.fromRGB(27, 29, 34)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(21, 23, 28))
+		})
+		MainGlassGrad.Transparency = NumberSequence.new(0)
+		MainGlassGrad.Enabled = true
+
+		StrokeGlassGrad.Rotation = 135
+		StrokeGlassGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 192, 206):Lerp(eff.Accent, 0.22)),
+			ColorSequenceKeypoint.new(0.5, eff.Stroke),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(58, 62, 72))
+		})
+		StrokeGlassGrad.Transparency = NumberSequence.new(0)
+		StrokeGlassGrad.Enabled = true
+
+		for _, item in ipairs(ThemeObjects.CardBg) do
+			if item.Instance and item.Instance.Parent then
+				if item.Instance:IsA("Frame") then
+					item.Instance.BackgroundTransparency = 0
+					local cc = item.Instance:FindFirstChildOfClass("UICorner")
+					if cc then cc.CornerRadius = UDim.new(0, 2) end
+					local st = item.Instance:FindFirstChildOfClass("UIStroke")
+					if st then st.Transparency = 0.14 st.Thickness = 1.2 st.Color = eff.Stroke end
+				elseif item.Instance:IsA("GuiButton") then
+					item.Instance.BackgroundTransparency = 0
+					local cc = item.Instance:FindFirstChildOfClass("UICorner")
+					if cc then cc.CornerRadius = UDim.new(0, 2) end
+				end
+			end
+		end
+		for _, item in ipairs(ThemeObjects.PanelBg) do
+			if item.Instance and item.Instance.Parent and item.Instance ~= TopBar and item.Instance ~= Sidebar and item.Instance ~= ContentContainer then
+				if item.Instance:IsA("GuiObject") then
+					item.Instance.BackgroundTransparency = 0
+				end
+			end
+		end
 	else
 		MainFrame.BackgroundTransparency = 0.06
 		TopBar.BackgroundTransparency = 0.10
@@ -3031,7 +3116,7 @@ genv._TR_ApplyGuiDesign = function(designName, showNotif)
 	savedConfig.Settings.GuiDesign = designName
 	ApplyTheme(Config.Theme or "Default")
 	if showNotif and NotifyFeatureToggle then
-		local label = (designName == "LiquidGlass" and "GUI: Apple Liquid Glass") or (designName == "CyberHud" and "GUI: Quantum Cyber-HUD") or "GUI: Default Classic"
+		local label = (designName == "LiquidGlass" and "GUI: Apple Liquid Glass") or (designName == "CyberHud" and "GUI: Quantum Cyber-HUD") or (designName == "Classic" and "GUI: Classic Retro") or "GUI: Default"
 		NotifyFeatureToggle(label, true)
 	end
 end
@@ -4240,7 +4325,7 @@ TryAssignUniqueKeybind = function(keyName, slotId, applyFn, refreshFn, btnObj)
 	SaveConfig(false)
 	return true
 end
-CreateSectionHeader(Tab1_Dashboard, "GUI Design Style (1. Default | 2. Apple Liquid Glass | 3. Neon Cyber-HUD)", 1)
+CreateSectionHeader(Tab1_Dashboard, "GUI Design Style (1. Default | 2. Liquid Glass | 3. Cyber-HUD | 4. Classic)", 1)
 local DesignCard = CreateCard(Tab1_Dashboard, 0, 2)
 DesignCard.AutomaticSize = Enum.AutomaticSize.Y
 local DesignPad = Instance.new("UIPadding")
@@ -4248,7 +4333,7 @@ DesignPad.PaddingTop = UDim.new(0, 8) DesignPad.PaddingBottom = UDim.new(0, 8)
 DesignPad.PaddingLeft = UDim.new(0, 8) DesignPad.PaddingRight = UDim.new(0, 8)
 DesignPad.Parent = DesignCard
 local DesignGrid = Instance.new("UIGridLayout")
-DesignGrid.CellSize = UDim2.new(0.333, -5, 0, 34)
+DesignGrid.CellSize = UDim2.new(0.5, -4, 0, 34)
 DesignGrid.CellPadding = UDim2.new(0, 6, 0, 6)
 DesignGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
 DesignGrid.VerticalAlignment = Enum.VerticalAlignment.Center
@@ -4256,9 +4341,10 @@ DesignGrid.SortOrder = Enum.SortOrder.LayoutOrder
 DesignGrid.Parent = DesignCard
 local DesignButtons = {}
 local DesignOptions = {
-	{ Id = "Default", Label = "1. Default Classic" },
+	{ Id = "Default", Label = "1. Default" },
 	{ Id = "LiquidGlass", Label = "2. Apple Liquid Glass" },
-	{ Id = "CyberHud", Label = "3. Neon Cyber-HUD" }
+	{ Id = "CyberHud", Label = "3. Neon Cyber-HUD" },
+	{ Id = "Classic", Label = "4. Classic" }
 }
 local ThemeBtnsMap = {}
 local function RefreshDesignButtons()
@@ -4267,7 +4353,8 @@ local function RefreshDesignButtons()
 	for id, btn in pairs(DesignButtons) do
 		local active = (id == curD)
 		FUI.TweenButtonState(btn, active and theme.Accent or theme.PanelBg, active and Color3.fromRGB(255, 255, 255) or theme.TextPrimary, active)
-		btn.Text = (active and "[ON] " or "") .. (id == "Default" and "1. Default" or (id == "LiquidGlass" and "2. Liquid Glass" or "3. Cyber-HUD"))
+		local shortName = (id == "Default" and "1. Default") or (id == "LiquidGlass" and "2. Liquid Glass") or (id == "CyberHud" and "3. Cyber-HUD") or "4. Classic"
+		btn.Text = (active and "[ON] " or "") .. shortName
 	end
 	if ThemeBtnsMap["Default"] then
 		if curD == "LiquidGlass" then
@@ -4276,6 +4363,9 @@ local function RefreshDesignButtons()
 		elseif curD == "CyberHud" then
 			ThemeBtnsMap["Default"].Text = E.Bolt .. " Cyber Neon (Default)"
 			FUI.TweenButtonState(ThemeBtnsMap["Default"], Color3.fromRGB(0, 210, 235))
+		elseif curD == "Classic" then
+			ThemeBtnsMap["Default"].Text = E.Bolt .. " Classic Slate (Default)"
+			FUI.TweenButtonState(ThemeBtnsMap["Default"], Color3.fromRGB(0, 122, 214))
 		else
 			ThemeBtnsMap["Default"].Text = E.Bolt .. " T.R Default"
 			FUI.TweenButtonState(ThemeBtnsMap["Default"], Themes["Default"].Accent)
@@ -4427,6 +4517,17 @@ if FUI.RegisterSearchFunction then
 		GetState = function() return (Config.GuiDesign == "CyberHud") end,
 		Toggle = function()
 			local nextD = (Config.GuiDesign == "CyberHud") and "Default" or "CyberHud"
+			if genv._TR_ApplyGuiDesign then genv._TR_ApplyGuiDesign(nextD, true) end
+		end
+	})
+	FUI.RegisterSearchFunction({
+		Name = "GUI Design: 4. Classic",
+		TabName = "Themes & Status",
+		Keywords = "gui design classic retro flat boxy slate desktop",
+		Priority = 12,
+		GetState = function() return (Config.GuiDesign == "Classic") end,
+		Toggle = function()
+			local nextD = (Config.GuiDesign == "Classic") and "Default" or "Classic"
 			if genv._TR_ApplyGuiDesign then genv._TR_ApplyGuiDesign(nextD, true) end
 		end
 	})
@@ -10289,9 +10390,11 @@ local function SetupTab12()
 	local playIdBtn = MakeButton(SearchCard, UDim2.new(0, 98, 0, 30), UDim2.new(1, -104, 0.5, -15), E.Play .. " Play ID", "Accent", 11)
 
 	local PageCard = CreateCard(Tab12_Emotes, 40, 7)
-	local prevBtn = MakeButton(PageCard, UDim2.new(0, 68, 0, 26), UDim2.new(0, 8, 0.5, -13), "< Prev", "PanelBg", 11)
-	local nextBtn = MakeButton(PageCard, UDim2.new(0, 68, 0, 26), UDim2.new(1, -76, 0.5, -13), "Next >", "PanelBg", 11)
-	local pageInfoLbl = MakeLabel(PageCard, UDim2.new(1, -164, 1, 0), UDim2.new(0, 82, 0, 0), "Loading catalog...", Enum.Font.GothamBold, 11, "Accent", Enum.TextXAlignment.Center)
+	local firstBtn = MakeButton(PageCard, UDim2.new(0, 50, 0, 26), UDim2.new(0, 8, 0.5, -13), "<< First", "PanelBg", 10)
+	local prevBtn = MakeButton(PageCard, UDim2.new(0, 56, 0, 26), UDim2.new(0, 64, 0.5, -13), "< Prev", "PanelBg", 11)
+	local nextBtn = MakeButton(PageCard, UDim2.new(0, 56, 0, 26), UDim2.new(1, -120, 0.5, -13), "Next >", "PanelBg", 11)
+	local lastBtn = MakeButton(PageCard, UDim2.new(0, 50, 0, 26), UDim2.new(1, -58, 0.5, -13), "Last >>", "PanelBg", 10)
+	local pageInfoLbl = MakeLabel(PageCard, UDim2.new(1, -252, 1, 0), UDim2.new(0, 126, 0, 0), "Loading catalog...", Enum.Font.GothamBold, 11, "Accent", Enum.TextXAlignment.Center)
 	pageInfoLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local GridContainer = Instance.new("Frame", Tab12_Emotes)
@@ -10468,6 +10571,12 @@ local function SetupTab12()
 		currentPage = 1
 		RebuildEmotesGrid()
 	end)
+	firstBtn.MouseButton1Click:Connect(function()
+		if currentPage ~= 1 then
+			currentPage = 1
+			RebuildEmotesGrid()
+		end
+	end)
 	prevBtn.MouseButton1Click:Connect(function()
 		local list = getFilteredCatalog()
 		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
@@ -10479,6 +10588,14 @@ local function SetupTab12()
 		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
 		currentPage = (currentPage >= totalPages) and 1 or (currentPage + 1)
 		RebuildEmotesGrid()
+	end)
+	lastBtn.MouseButton1Click:Connect(function()
+		local list = getFilteredCatalog()
+		local totalPages = math.max(1, math.ceil(#list / ITEMS_PER_PAGE))
+		if currentPage ~= totalPages then
+			currentPage = totalPages
+			RebuildEmotesGrid()
+		end
 	end)
 	randomBtn.MouseButton1Click:Connect(function()
 		local list = getFilteredCatalog()
@@ -10612,7 +10729,7 @@ local function SetupTab12()
 		end)
 	end
 	FUI.RefreshEmotesTab = RebuildEmotesGrid
-	task.defer(loadEmoteCatalogs)
+	task.delay(1.25, loadEmoteCatalogs)
 end
 if FUI.SetLoadProgress then FUI.SetLoadProgress(84, "Loading Emotes & Animation Packs...") end
 xpcall(SetupTab12, warn)
@@ -17405,13 +17522,14 @@ if vars.LocalPlayer.Character then
 end
 
 vars.RefreshAvatarChangerTheme()
-task.defer(function()
+task.delay(0.75, function()
 	if not vars.scriptAlive then return end
 	vars.loadSavedAvatars()
+	pcall(function() RunService.Heartbeat:Wait() end)
 	vars.populateAvatarList()
 	vars.RefreshAvatarChangerTheme()
 	if vars.scriptAlive and not vars.previewQueueRunning then
-		task.spawn(vars.processPreviewQueue)
+		task.delay(0.5, vars.processPreviewQueue)
 	end
 end)
 
