@@ -54,7 +54,7 @@ local function DeepCleanup(forcePurgeAll)
 	if gethui then pcall(function() purge(gethui()) end) end pcall(function() purge(CoreGui) end)
 	pcall(function() purge(player:FindFirstChildOfClass("PlayerGui")) end) pcall(function()
 		for _, obj in ipairs(workspace:GetChildren()) do
-			if obj.Name == "TR_FakeFloor" or obj.Name == "TR_Floor" then obj:Destroy() end end end)
+			if obj.Name == "TR_FakeFloor" or obj.Name == "TR_Floor" or obj.Name == "TR_WaypointBeacons" then obj:Destroy() end end end)
 	pcall(function() for _, plr in ipairs(Players:GetPlayers()) do
 			local esp = plr.Character and (plr.Character:FindFirstChild("TR_ESP_Highlight") or plr.Character:FindFirstChild("AssetHighlight"))
 			if esp then esp:Destroy() end end end) end DeepCleanup() local function GetSafeGuiParent(targetGui)
@@ -85,10 +85,15 @@ local CONFIG_FILENAME = "TRScripts_Config_V100.json" local FALLBACK_FILES = {
 		MasterUtilityEnabled = false, MasterFlightEnabled = false, NoclipEnabled = false,
 		AntiFlingEnabled = true, AutoSelectFling = false, AntiCheatBypass = true, ShiftDownEnabled = true,
 		CountdownBypass = false, AntiAFK = true, InstantPrompt = false, ESPEnabled = false,
-		FullbrightEnabled = false, NoFogEnabled = false, CameraOverrideMode = "Free / Unlocked", LockedTime = nil }, Waypoints = {
-		{ Name = "Spawn Point", X = 0, Y = 50, Z = 0, Keybind = "None" } }, RadarKeybinds = {},
+		FullbrightEnabled = false, NoFogEnabled = false, CameraOverrideMode = "Free / Unlocked", LockedTime = nil,
+		FpsBoosterEnabled = false, TelemetryHudEnabled = false, TelemetryHudLocked = false,
+		TelemetryHudWidth = 248, TelemetryHudHeight = 114, WaypointScope = "ThisGame", WaypointBeaconsEnabled = false, ToggleNotifsEnabled = true, RadialWheelEnabled = true, RadialWheelKeybind = "V", FocusPowerSaverEnabled = true }, Waypoints = {
+		{ Name = "Spawn Point", X = 0, Y = 50, Z = 0, Keybind = "None", PlaceId = 0 } }, RadarKeybinds = {},
 	ExecutorTabs = {
 		{ Name = "Script 1", Code = "print('T.R Scripts V95 Ready!')" } },
+	ExecutorLibrary = {
+		{ Name = "Hello Test", Code = "print('Hello from T.R Scripts V95 Library!')", Favorite = true } },
+	FavoriteFunctions = {},
 	ActiveExecutorTab = 1 }
 local savedConfig = HttpService:JSONDecode(HttpService:JSONEncode(DefaultConfig))
 local Config = savedConfig.Settings local SaveFeedbackCallback = nil
@@ -125,10 +130,13 @@ local function syncAllSystems() SaveConfig(false) end local function LoadConfig(
 					if type(decoded.Waypoints) == "table" then savedConfig.Waypoints = decoded.Waypoints end
 					if type(decoded.RadarKeybinds) == "table" then savedConfig.RadarKeybinds = decoded.RadarKeybinds end
 					if type(decoded.ExecutorTabs) == "table" then savedConfig.ExecutorTabs = decoded.ExecutorTabs end
+					if type(decoded.ExecutorLibrary) == "table" then savedConfig.ExecutorLibrary = decoded.ExecutorLibrary end
+					if type(decoded.FavoriteFunctions) == "table" then savedConfig.FavoriteFunctions = decoded.FavoriteFunctions end
 					if type(decoded.ActiveExecutorTab) == "number" then savedConfig.ActiveExecutorTab = decoded.ActiveExecutorTab end
 				end end end end)
 	if not savedConfig.Settings.FreecamKeybind then savedConfig.Settings.FreecamKeybind = "C" end
 	if not savedConfig.Settings.FreecamSpeed then savedConfig.Settings.FreecamSpeed = 60 end
+	if type(savedConfig.Settings.RadialWheelKeybind) ~= "string" or savedConfig.Settings.RadialWheelKeybind == "" then savedConfig.Settings.RadialWheelKeybind = "V" end
 	if savedConfig.Settings.Animation ~= "Default" and savedConfig.Settings.Animation ~= "Windows" and savedConfig.Settings.Animation ~= "macOS" then
 		savedConfig.Settings.Animation = "Default"
 	end
@@ -305,14 +313,32 @@ FUI.TI = {
 	Dot = TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 	Ripple = TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
 	TagPop = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	LoaderBar = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	LoaderBar = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	TabBtn = TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+	TabPage = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+	CardHover = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	ToggleKnob = TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	SliderSet = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	NotifIn = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	NotifRefresh = TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	NotifOut = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+	NotifScaleOut = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+	NotifDrain = TweenInfo.new(2.15, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
 }
+FUI.ToggleHandles = {}
 FUI.SafeTween = function(inst, info, props)
 	if not inst or not inst.Parent then return nil end
-	local prev = FUI._ActiveTweens[inst]
+	local bucket = FUI._ActiveTweens[inst]
+	if not bucket then
+		bucket = {}
+		FUI._ActiveTweens[inst] = bucket
+	end
+	local propKey = ""
+	for k in pairs(props) do propKey = propKey .. tostring(k) .. "|" end
+	local prev = bucket[propKey]
 	if prev then pcall(function() prev:Cancel() end) end
 	local tw = TweenService:Create(inst, info, props)
-	FUI._ActiveTweens[inst] = tw
+	bucket[propKey] = tw
 	tw:Play()
 	return tw
 end
@@ -885,7 +911,7 @@ do
 	stageLbl.TextColor3 = hiCol
 	stageLbl.TextTransparency = 0.12
 	stageLbl.TextXAlignment = Enum.TextXAlignment.Right
-	stageLbl.Text = "STAGE 0 / 12"
+	stageLbl.Text = "STAGE 0 / 13"
 	stageLbl.ZIndex = 953
 	stageLbl.Parent = loaderFrame
 
@@ -1118,8 +1144,8 @@ do
 	FUI.SetLoadProgress = function(pct, msg)
 		if isClosingPermanently or not loaderFrame or not loaderFrame.Parent then return end
 		local targetPct = math.clamp(tonumber(pct) or 0, 0, 100)
-		stageCount = math.min(stageCount + 1, 12)
-		stageLbl.Text = string.format("STAGE %d / 12", stageCount)
+		stageCount = math.min(stageCount + 1, 13)
+		stageLbl.Text = string.format("STAGE %d / 13", stageCount)
 		emblemPodScale.Scale = 1.13
 		FUI.SafeTween(emblemPodScale, POP_TI, { Scale = 1.0 })
 		pctScale.Scale = 1.09
@@ -1148,7 +1174,7 @@ do
 
 	FUI.FinishLoader = function()
 		if not loaderFrame or not loaderFrame.Parent then return end
-		stageLbl.Text = "STAGE 12 / 12"
+		stageLbl.Text = "STAGE 13 / 13"
 		pctLbl.Text = "100%"
 		statusLbl.Text = E.Check .. " T.R scripts V95 Ready!"
 		statusPulse.BackgroundColor3 = emeraldCol
@@ -1188,6 +1214,26 @@ RegisterThemeObject(MainFrame, "BackgroundColor3", "MainBg") AddCorner(MainFrame
 local MainScale = Instance.new("UIScale") MainScale.Scale = 1 MainScale.Parent = MainFrame
 local MainStroke = Instance.new("UIStroke") MainStroke.Thickness = 1.6 MainStroke.Transparency = 0.25
 MainStroke.Parent = MainFrame RegisterThemeObject(MainStroke, "Color", "Stroke")
+FUI.MainTopBlackBorder = Instance.new("Frame")
+FUI.MainTopBlackBorder.Name = "TR_TopBlackBorder"
+FUI.MainTopBlackBorder.Size = UDim2.new(1, 0, 0, 4)
+FUI.MainTopBlackBorder.Position = UDim2.new(0, 0, 0, 0)
+FUI.MainTopBlackBorder.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+FUI.MainTopBlackBorder.BackgroundTransparency = 0
+FUI.MainTopBlackBorder.BorderSizePixel = 0
+FUI.MainTopBlackBorder.Active = false
+FUI.MainTopBlackBorder.ZIndex = 9
+FUI.MainTopBlackBorder.Parent = MainFrame
+FUI.MainBottomBlackBorder = Instance.new("Frame")
+FUI.MainBottomBlackBorder.Name = "TR_BottomBlackBorder"
+FUI.MainBottomBlackBorder.Size = UDim2.new(1, 0, 0, 4)
+FUI.MainBottomBlackBorder.Position = UDim2.new(0, 0, 1, -4)
+FUI.MainBottomBlackBorder.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+FUI.MainBottomBlackBorder.BackgroundTransparency = 0
+FUI.MainBottomBlackBorder.BorderSizePixel = 0
+FUI.MainBottomBlackBorder.Active = false
+FUI.MainBottomBlackBorder.ZIndex = 9
+FUI.MainBottomBlackBorder.Parent = MainFrame
 local TopBar = Instance.new("Frame") TopBar.Name = "TopBar" TopBar.Size = UDim2.new(1, 0, 0, 44)
 TopBar.BackgroundTransparency = 0.1 TopBar.BorderSizePixel = 0 TopBar.Parent = MainFrame
 RegisterThemeObject(TopBar, "BackgroundColor3", "PanelBg") AddCorner(TopBar, 12)
@@ -1320,7 +1366,7 @@ FUI.TopBarLaserGrad.Transparency = NumberSequence.new({
 	NumberSequenceKeypoint.new(1, 0.92)
 })
 local SubBadge = Instance.new("TextLabel") SubBadge.Size = UDim2.new(0, 125, 0, 24)
-SubBadge.Position = UDim2.new(1, -242, 0.5, -12) SubBadge.BackgroundTransparency = 0.12
+SubBadge.Position = UDim2.new(1, -278, 0.5, -12) SubBadge.BackgroundTransparency = 0.12
 SubBadge.Font = Enum.Font.GothamBold SubBadge.TextSize = 11 SubBadge.Text = E.Bolt .. " T.R V95 [X]"
 SubBadge.Parent = TopBar RegisterThemeObject(SubBadge, "BackgroundColor3", "CardBg")
 RegisterThemeObject(SubBadge, "TextColor3", "Accent") AddCorner(SubBadge, 6)
@@ -1330,6 +1376,14 @@ FUI.SubBadgeStroke.Color = Color3.fromRGB(255, 255, 255)
 FUI.SubBadgeStroke.Transparency = 0.38
 FUI.SubBadgeStrokeGrad = Instance.new("UIGradient", FUI.SubBadgeStroke)
 FUI.SyncHeaderThemeGradients(GetTheme())
+local SoftResetBtn = MakeButton(TopBar, UDim2.new(0, 32, 0, 28), UDim2.new(1, -146, 0.5, -14), E.Refresh, "CardBg", 14)
+SoftResetBtn.MouseButton1Click:Connect(function()
+	if FUI.SoftResetAll then pcall(FUI.SoftResetAll) end
+	SoftResetBtn.Text = E.Check
+	task.delay(1.1, function()
+		if SoftResetBtn and SoftResetBtn.Parent then SoftResetBtn.Text = E.Refresh end
+	end)
+end)
 local SaveBtn = MakeButton(TopBar, UDim2.new(0, 34, 0, 28), UDim2.new(1, -108, 0.5, -14), E.Save, "CardBg", 14)
 SaveFeedbackCallback = function() SaveBtn.Text = E.Check task.delay(1.1, function()
 		if SaveBtn and SaveBtn.Parent then SaveBtn.Text = E.Save end end) end
@@ -1381,12 +1435,20 @@ local draggingGui, resizingMode = false, nil do local dragStartPos, startFramePo
 				resizeStartCenter.X.Scale, resizeStartCenter.X.Offset + math.floor((newW - resizeStartSize.X) * 0.5 + 0.5),
 				resizeStartCenter.Y.Scale, resizeStartCenter.Y.Offset + math.floor((newH - resizeStartSize.Y) * 0.5 + 0.5)
 			) MainFrame.Position = RestingPosition elseif draggingGui then
-			local delta = input.Position - dragStartPos RestingPosition = UDim2.new(
-				startFramePos.X.Scale, startFramePos.X.Offset + delta.X,
-				startFramePos.Y.Scale, startFramePos.Y.Offset + delta.Y ) MainFrame.Position = RestingPosition end
+			local delta = input.Position - dragStartPos
+			local cam = workspace.CurrentCamera
+			local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+			local rawX = (startFramePos.X.Scale * vs.X) + startFramePos.X.Offset + delta.X
+			local rawY = (startFramePos.Y.Scale * vs.Y) + startFramePos.Y.Offset + delta.Y
+			local halfH = (CurrentHeight * (MainScale and MainScale.Scale or 1)) * 0.5
+			local clampedX = math.clamp(rawX, 60, math.max(60, vs.X - 60))
+			local clampedY = math.clamp(rawY, math.max(24, halfH - 12), math.max(80, vs.Y + halfH - 52))
+			RestingPosition = UDim2.new(0, clampedX, 0, clampedY)
+			MainFrame.Position = RestingPosition
+		end
 	end)) end local Sidebar = Instance.new("ScrollingFrame") Sidebar.Size = UDim2.new(0, 185, 1, -62)
 Sidebar.Position = UDim2.new(0, 10, 0, 50) Sidebar.BackgroundTransparency = 0.12
-Sidebar.BorderSizePixel = 0 Sidebar.ScrollBarThickness = 3 Sidebar.CanvasSize = UDim2.new(0, 0, 0, 360)
+Sidebar.BorderSizePixel = 0 Sidebar.ScrollBarThickness = 3 Sidebar.CanvasSize = UDim2.new(0, 0, 0, 510)
 Sidebar.ScrollingDirection = Enum.ScrollingDirection.Y Sidebar.ZIndex = 5 Sidebar.Parent = MainFrame
 RegisterThemeObject(Sidebar, "BackgroundColor3", "PanelBg")
 RegisterThemeObject(Sidebar, "ScrollBarImageColor3", "Accent") AddCorner(Sidebar, 10)
@@ -1605,6 +1667,13 @@ local function SetMenuVisible(state, onComplete, forceAnim) if isClosingPermanen
 		end
 	end end
 MainScale.Scale = GetTargetWindowScale()
+if workspace.CurrentCamera then
+	table.insert(Connections, workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		if isMenuVisible and not isClosingPermanently and MainScale then
+			MainScale.Scale = GetTargetWindowScale()
+		end
+	end))
+end
 do
 	FloatingPill = Instance.new("Frame")
 	FloatingPill.Name = "TR_FloatingPill"
@@ -1926,18 +1995,18 @@ do
 
 	FloatHitBox.MouseEnter:Connect(function()
 		if not floatDragging and FUI.FloatPillScale then
-			TweenService:Create(FUI.FloatPillScale, TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.06 }):Play()
+			FUI.SafeTween(FUI.FloatPillScale, FUI.TI.HoverIn, { Scale = 1.05 })
 		end
 		if FUI.FloatDragIcon and not isFloatingPillLocked then
-			TweenService:Create(FUI.FloatDragIcon, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Rotation = 90 }):Play()
+			FUI.SafeTween(FUI.FloatDragIcon, FUI.TI.HoverIn, { Rotation = 90 })
 		end
 	end)
 	FloatHitBox.MouseLeave:Connect(function()
 		if not floatDragging and FUI.FloatPillScale then
-			TweenService:Create(FUI.FloatPillScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.0 }):Play()
+			FUI.SafeTween(FUI.FloatPillScale, FUI.TI.HoverOut, { Scale = 1.0 })
 		end
 		if FUI.FloatDragIcon then
-			TweenService:Create(FUI.FloatDragIcon, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Rotation = 0 }):Play()
+			FUI.SafeTween(FUI.FloatDragIcon, FUI.TI.HoverOut, { Rotation = 0 })
 		end
 	end)
 	FloatHitBox.InputBegan:Connect(function(inp)
@@ -1967,10 +2036,12 @@ do
 		if floatDragging and not isFloatingPillLocked and (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseMovement) then
 			local delta = inp.Position - floatDragStart
 			if delta.Magnitude > 5 then floatMoved = true end
-			FloatingPill.Position = UDim2.new(
-				floatStartPos.X.Scale, floatStartPos.X.Offset + delta.X,
-				floatStartPos.Y.Scale, floatStartPos.Y.Offset + delta.Y
-			)
+			local cam = workspace.CurrentCamera
+			local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+			local pw, ph = FloatingPill.AbsoluteSize.X, FloatingPill.AbsoluteSize.Y
+			local rx = (floatStartPos.X.Scale * vs.X) + floatStartPos.X.Offset + delta.X
+			local ry = (floatStartPos.Y.Scale * vs.Y) + floatStartPos.Y.Offset + delta.Y
+			FloatingPill.Position = UDim2.new(0, math.clamp(rx, 4, math.max(4, vs.X - pw - 4)), 0, math.clamp(ry, 4, math.max(4, vs.Y - ph - 4)))
 		end
 	end))
 	FloatHitBox.MouseButton1Click:Connect(function()
@@ -1988,14 +2059,25 @@ do
 	local lastHeaderTagIdx = 1
 	local lastUiAnimTick = 0
 	table.insert(Connections, RunService.Heartbeat:Connect(function()
-		if isClosingPermanently then return end
+		if isClosingPermanently or FUI.IsWindowUnfocused then return end
 		local menuVis = (isMenuVisible == true and MainFrame.Visible == true)
 		local pillVis = (FloatingPill ~= nil and FloatingPill.Visible == true)
 		local sqVis = (MobileSquareIcon ~= nil and MobileSquareIcon.Visible == true)
 		if not menuVis and not pillVis and not sqVis then return end
 		local now = os.clock()
-		if now - lastUiAnimTick < 0.05 then return end
+		local interval = Config.FpsBoosterEnabled and 0.25 or 0.066
+		if now - lastUiAnimTick < interval then return end
 		lastUiAnimTick = now
+		if Config.FpsBoosterEnabled then
+			if menuVis then
+				local tagIdx = (math.floor(now / 3.2) % #headerTagPhrases) + 1
+				if tagIdx ~= lastHeaderTagIdx and FUI.HeaderTagText then
+					lastHeaderTagIdx = tagIdx
+					FUI.HeaderTagText.Text = headerTagPhrases[tagIdx]
+				end
+			end
+			return
+		end
 		local rot = (now * 48) % 360
 		local haloRot = (360 - ((now * 36) % 360)) % 360
 		local sweepX = math.sin(now * 1.9) * 0.36
@@ -2249,10 +2331,12 @@ if isMobileDevice then
 		if sqDragging and not isFloatingPillLocked and (inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseMovement) then
 			local delta = inp.Position - sqDragStart
 			if delta.Magnitude > 5 then sqMoved = true end
-			MobileSquareIcon.Position = UDim2.new(
-				sqStartPos.X.Scale, sqStartPos.X.Offset + delta.X,
-				sqStartPos.Y.Scale, sqStartPos.Y.Offset + delta.Y
-			)
+			local cam = workspace.CurrentCamera
+			local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+			local sw, sh = MobileSquareIcon.AbsoluteSize.X, MobileSquareIcon.AbsoluteSize.Y
+			local rx = (sqStartPos.X.Scale * vs.X) + sqStartPos.X.Offset + delta.X
+			local ry = (sqStartPos.Y.Scale * vs.Y) + sqStartPos.Y.Offset + delta.Y
+			MobileSquareIcon.Position = UDim2.new(0, math.clamp(rx, 4, math.max(4, vs.X - sw - 4)), 0, math.clamp(ry, 4, math.max(4, vs.Y - sh - 4)))
 		end
 	end))
 	SquareHitBox.MouseButton1Click:Connect(function()
@@ -2909,6 +2993,7 @@ ApplyGuiDesignSurface = function()
 			end
 		end
 	end
+	if FUI.ApplyTelemetryHudStyle then pcall(FUI.ApplyTelemetryHudStyle) end
 end
 
 genv._TR_ApplyGuiDesign = function(designName, showNotif)
@@ -3042,14 +3127,19 @@ local function SyncSingleSearchCardVisual(cEntry, theme)
 	end
 end
 
-FUI.RefreshSearchCardsVisuals = function()
+FUI.RefreshSearchCardsVisuals = function(forceAll)
 	if FUI.IsInitializing then return end
 	local theme = GetTheme()
-	for _, cEntry in ipairs(FUI.SearchCards) do
-		SyncSingleSearchCardVisual(cEntry, theme)
+	if forceAll == true or (FUI.SearchResultsPage and FUI.SearchResultsPage.Visible) then
+		for _, cEntry in ipairs(FUI.SearchCards) do
+			SyncSingleSearchCardVisual(cEntry, theme)
+		end
+	end
+	if (forceAll == true or ActiveTabName == "Favorite") and FUI.SyncFavoritesVisuals then
+		pcall(FUI.SyncFavoritesVisuals)
 	end
 end
-table.insert(ThemeObjects.CustomCallbacks, FUI.RefreshSearchCardsVisuals)
+table.insert(ThemeObjects.CustomCallbacks, function() FUI.RefreshSearchCardsVisuals(true) end)
 
 FUI.ApplySearchFilter = function()
 	local rawQ = FUI.QuickSearchInput and FUI.QuickSearchInput.Text or ""
@@ -3066,6 +3156,7 @@ FUI.ApplySearchFilter = function()
 		data.Page.Visible = false
 	end
 	if FUI.SearchResultsPage then FUI.SearchResultsPage.Visible = true end
+	if FUI.RefreshSearchCardsVisuals then pcall(FUI.RefreshSearchCardsVisuals, false) end
 	local words = {}
 	for w in q:gmatch("%S+") do table.insert(words, w) end
 	local matchCount = 0
@@ -3085,7 +3176,19 @@ FUI.ApplySearchFilter = function()
 	FUI.RefreshSearchCardsVisuals()
 end
 
-FUI.QuickSearchInput:GetPropertyChangedSignal("Text"):Connect(FUI.ApplySearchFilter)
+local _qsDebounceTok = 0
+FUI.QuickSearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+	if FUI.QuickSearchInput.Text == "" then
+		_qsDebounceTok = _qsDebounceTok + 1
+		FUI.ApplySearchFilter()
+		return
+	end
+	_qsDebounceTok = _qsDebounceTok + 1
+	local myTok = _qsDebounceTok
+	task.delay(0.04, function()
+		if _qsDebounceTok == myTok then FUI.ApplySearchFilter() end
+	end)
+end)
 FUI.QuickSearchClearBtn.MouseButton1Click:Connect(function()
 	FUI.QuickSearchInput.Text = ""
 	FUI.ApplySearchFilter()
@@ -3093,6 +3196,7 @@ end)
 
 FUI.SwitchToTab = function(tabName)
 	if not Tabs[tabName] then return end
+	local changed = (ActiveTabName ~= tabName)
 	ActiveTabName = tabName
 	if FUI.QuickSearchInput and FUI.QuickSearchInput.Text ~= "" then
 		FUI.QuickSearchInput.Text = ""
@@ -3102,27 +3206,29 @@ FUI.SwitchToTab = function(tabName)
 	for name, data in pairs(Tabs) do
 		local isAct = (name == tabName)
 		data.Page.Visible = isAct
-		TweenService:Create(data.Button, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		FUI.SafeTween(data.Button, FUI.TI.TabBtn, {
 			BackgroundColor3 = isAct and theme.Accent or theme.CardBg,
 			BackgroundTransparency = isAct and 0.02 or 0.22
-		}):Play()
+		})
 		if data.Indicator then
-			TweenService:Create(data.Indicator, TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			FUI.SafeTween(data.Indicator, FUI.TI.Dot, {
 				Size = isAct and UDim2.new(0, 4, 0, 20) or UDim2.new(0, 0, 0, 0),
 				BackgroundColor3 = isAct and Color3.fromRGB(255, 255, 255) or theme.Accent
-			}):Play()
+			})
 		end
-		if isAct and data.Page then
-			data.Page.Position = UDim2.new(0, 8, 0, 68)
-			TweenService:Create(data.Page, TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		if isAct and changed and data.Page then
+			data.Page.Position = UDim2.new(0, 8, 0, 56)
+			FUI.SafeTween(data.Page, FUI.TI.TabPage, {
 				Position = UDim2.new(0, 8, 0, 46)
-			}):Play()
+			})
 		end
 	end
 	if tabName ~= "Avatar Changer" and genv._TR_StopAvatarHoverPreview then pcall(genv._TR_StopAvatarHoverPreview) end
-	if tabName == "Player Radar" and genv._TR_RefreshRadar then pcall(genv._TR_RefreshRadar)
+	if tabName == "Favorite" and FUI.SyncFavoritesVisuals then pcall(FUI.SyncFavoritesVisuals)
+	elseif tabName == "Player Radar" and genv._TR_RefreshRadar then pcall(genv._TR_RefreshRadar)
 	elseif tabName == "Target Fling" and genv._TR_RefreshFling then pcall(genv._TR_RefreshFling)
 	elseif tabName == "Aimbot & Visuals" and genv._TR_RefreshTargetAimbotList then pcall(genv._TR_RefreshTargetAimbotList)
+	elseif tabName == "Script Executor" and FUI.SyncConsoleUI then pcall(FUI.SyncConsoleUI)
 	elseif tabName == "Hacker Detector" and genv._TR_RefreshDetectorOrder then pcall(genv._TR_RefreshDetectorOrder) end
 end
 
@@ -3198,23 +3304,19 @@ local function CreateCard(parent, height, order)
 	Card.MouseEnter:Connect(function()
 		local curD = Config.GuiDesign or "Default"
 		local hoverTrans = (curD == "CyberHud" and 0.0) or (curD == "LiquidGlass" and 0.08) or 0.22
-		TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Transparency = hoverTrans
-		}):Play()
+		FUI.SafeTween(Stroke, FUI.TI.CardHover, { Transparency = hoverTrans })
 	end)
 	Card.MouseLeave:Connect(function()
 		local curD = Config.GuiDesign or "Default"
 		local restTrans = (curD == "CyberHud" and 0.04) or (curD == "LiquidGlass" and 0.24) or 0.60
-		TweenService:Create(Stroke, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Transparency = restTrans
-		}):Play()
+		FUI.SafeTween(Stroke, FUI.TI.HoverOut, { Transparency = restTrans })
 	end)
 	return Card
 end local RightNotifHolder = Instance.new("Frame")
 RightNotifHolder.Name = "TR_RightNotifications"
 RightNotifHolder.AnchorPoint = Vector2.new(1, 1)
-RightNotifHolder.Position = UDim2.new(1, -14, 1, -18)
-RightNotifHolder.Size = UDim2.new(0, 236, 1, -80)
+RightNotifHolder.Position = UDim2.new(1, -16, 1, -18)
+RightNotifHolder.Size = UDim2.new(0, 286, 1, -80)
 RightNotifHolder.BackgroundTransparency = 1
 RightNotifHolder.BorderSizePixel = 0
 RightNotifHolder.ZIndex = 90
@@ -3223,52 +3325,110 @@ local RightNotifLayout = Instance.new("UIListLayout")
 RightNotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 RightNotifLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 RightNotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
-RightNotifLayout.Padding = UDim.new(0, 6)
+RightNotifLayout.Padding = UDim.new(0, 8)
 RightNotifLayout.Parent = RightNotifHolder
 local activeFeatureNotifs = {}
+local activeNotifOrder = {}
 local notifCounter = 0
+
+local function DismissNotifEntry(nameKey, entry)
+	if not entry then return end
+	if activeFeatureNotifs[nameKey] == entry then
+		activeFeatureNotifs[nameKey] = nil
+	end
+	for i = #activeNotifOrder, 1, -1 do
+		if activeNotifOrder[i] == nameKey then
+			table.remove(activeNotifOrder, i)
+			break
+		end
+	end
+	if entry.Inner and entry.Inner.Parent then
+		FUI.SafeTween(entry.Scale, FUI.TI.NotifScaleOut, { Scale = 0.90 })
+		local tw = TweenService:Create(entry.Inner, FUI.TI.NotifOut, { Position = UDim2.new(1, 310, 0, 0) })
+		tw:Play()
+		tw.Completed:Connect(function()
+			if entry.Slot and entry.Slot.Parent then entry.Slot:Destroy() end
+		end)
+	elseif entry.Slot and entry.Slot.Parent then
+		entry.Slot:Destroy()
+	end
+end
+
+FUI.ClearAllNotifications = function()
+	for k, entry in pairs(activeFeatureNotifs) do
+		entry.Token = (entry.Token or 0) + 1
+		if entry.Slot and entry.Slot.Parent then pcall(function() entry.Slot:Destroy() end) end
+		activeFeatureNotifs[k] = nil
+	end
+	table.clear(activeNotifOrder)
+end
 
 NotifyFeatureToggle = function(rawName, isEnabled)
 	if FUI and FUI.RefreshSearchCardsVisuals then pcall(FUI.RefreshSearchCardsVisuals) end
+	if Config.ToggleNotifsEnabled == false then return end
 	if isClosingPermanently or not ScreenGui or not ScreenGui.Parent then return end
 	local cleanName = tostring(rawName or "Feature"):gsub("%s*%b()$", "")
 	if cleanName == "" then cleanName = tostring(rawName or "Feature") end
 	local stateBool = (isEnabled == true)
-	local statusColor = stateBool and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60)
+	local statusColor = stateBool and Color3.fromRGB(46, 224, 130) or Color3.fromRGB(242, 78, 88)
+	local statusGlow = stateBool and Color3.fromRGB(135, 255, 195) or Color3.fromRGB(255, 145, 152)
 	local statusText = stateBool and "ON" or "OFF"
+	local subText = stateBool and (E.Sparkle .. " ACTIVATED  |  T.R V95") or (E.Dash .. " DEACTIVATED  |  T.R V95")
+	local iconGlyph = stateBool and E.Check or E.Close
 	local theme = GetTheme()
+	local curDesign = Config.GuiDesign or "Default"
+	local cardTrans = (curDesign == "LiquidGlass" and 0.34) or (curDesign == "CyberHud" and 0.04) or 0.06
+	local cornerRad = (curDesign == "LiquidGlass" and 13) or (curDesign == "CyberHud" and 7) or 10
+	local toastDur = 2.15
+
 	local existing = activeFeatureNotifs[cleanName]
 	if existing and existing.Slot and existing.Slot.Parent then
 		existing.Token = existing.Token + 1
 		local myToken = existing.Token
 		existing.Bar.BackgroundColor3 = statusColor
-		existing.Stroke.Color = statusColor
+		existing.IconPod.BackgroundColor3 = statusColor
+		existing.IconLbl.Text = iconGlyph
 		existing.Badge.BackgroundColor3 = statusColor
 		existing.Badge.Text = statusText
 		existing.Title.Text = cleanName
-		pcall(function()
-			TweenService:Create(existing.Inner, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
-		end)
-		task.delay(1.85, function()
+		existing.Sub.Text = subText
+		existing.Sub.TextColor3 = statusGlow
+		existing.Progress.BackgroundColor3 = statusColor
+		existing.Progress.Size = UDim2.new(1, 0, 1, 0)
+		existing.StrokeGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, statusColor),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(1, theme.Accent)
+		})
+		existing.BgGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, theme.MainBg:Lerp(statusColor, 0.16)),
+			ColorSequenceKeypoint.new(0.55, theme.MainBg),
+			ColorSequenceKeypoint.new(1, theme.MainBg:Lerp(theme.Accent, 0.14))
+		})
+		existing.Scale.Scale = 1.05
+		FUI.SafeTween(existing.Scale, FUI.TI.ToggleKnob, { Scale = 1.0 })
+		FUI.SafeTween(existing.Inner, FUI.TI.NotifRefresh, { Position = UDim2.new(0, 0, 0, 0) })
+		FUI.SafeTween(existing.Progress, FUI.TI.NotifDrain, { Size = UDim2.new(0, 0, 1, 0) })
+		task.delay(toastDur, function()
 			if activeFeatureNotifs[cleanName] == existing and existing.Token == myToken then
-				activeFeatureNotifs[cleanName] = nil
-				if existing.Inner and existing.Inner.Parent then
-					local tw = TweenService:Create(existing.Inner, TweenInfo.new(0.20, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Position = UDim2.new(1, 250, 0, 0) })
-					tw:Play()
-					tw.Completed:Connect(function()
-						if existing.Slot and existing.Slot.Parent then existing.Slot:Destroy() end
-					end)
-				elseif existing.Slot and existing.Slot.Parent then
-					existing.Slot:Destroy()
-				end
+				DismissNotifEntry(cleanName, existing)
 			end
 		end)
 		return
 	end
 
+	while #activeNotifOrder >= 5 do
+		local oldestKey = table.remove(activeNotifOrder, 1)
+		local oldestEntry = oldestKey and activeFeatureNotifs[oldestKey]
+		if oldestEntry then
+			oldestEntry.Token = (oldestEntry.Token or 0) + 1
+			DismissNotifEntry(oldestKey, oldestEntry)
+		end
+	end
+
 	notifCounter = notifCounter + 1
 	local slot = Instance.new("Frame")
-	slot.Size = UDim2.new(0, 232, 0, 38)
+	slot.Size = UDim2.new(0, 282, 0, 54)
 	slot.BackgroundTransparency = 1
 	slot.BorderSizePixel = 0
 	slot.LayoutOrder = notifCounter
@@ -3277,32 +3437,66 @@ NotifyFeatureToggle = function(rawName, isEnabled)
 
 	local inner = Instance.new("Frame")
 	inner.Size = UDim2.new(1, 0, 1, 0)
-	inner.Position = UDim2.new(1, 250, 0, 0)
-	inner.BackgroundColor3 = theme.MainBg
-	inner.BackgroundTransparency = 0.06
+	inner.Position = UDim2.new(1, 310, 0, 0)
+	inner.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	inner.BackgroundTransparency = cardTrans
 	inner.BorderSizePixel = 0
+	inner.ClipsDescendants = true
 	inner.ZIndex = 91
 	inner.Parent = slot
-	AddCorner(inner, 8)
+	AddCorner(inner, cornerRad)
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 1.3
-	stroke.Transparency = 0.2
-	stroke.Color = statusColor
-	stroke.Parent = inner
+	local scale = Instance.new("UIScale", inner)
+	scale.Scale = 0.88
 
-	local bar = Instance.new("Frame")
-	bar.Size = UDim2.new(0, 4, 1, -12)
-	bar.Position = UDim2.new(0, 6, 0, 6)
+	local bgGrad = Instance.new("UIGradient", inner)
+	bgGrad.Rotation = 18
+	bgGrad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, theme.MainBg:Lerp(statusColor, 0.16)),
+		ColorSequenceKeypoint.new(0.55, theme.MainBg),
+		ColorSequenceKeypoint.new(1, theme.MainBg:Lerp(theme.Accent, 0.14))
+	})
+
+	local stroke = Instance.new("UIStroke", inner)
+	stroke.Thickness = (curDesign == "CyberHud" and 2.0) or 1.5
+	stroke.Transparency = 0.12
+	stroke.Color = Color3.fromRGB(255, 255, 255)
+	local strokeGrad = Instance.new("UIGradient", stroke)
+	strokeGrad.Rotation = 25
+	strokeGrad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, statusColor),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, theme.Accent)
+	})
+
+	local bar = Instance.new("Frame", inner)
+	bar.Size = UDim2.new(0, 4, 1, -14)
+	bar.Position = UDim2.new(0, 6, 0, 7)
 	bar.BackgroundColor3 = statusColor
 	bar.BorderSizePixel = 0
-	bar.ZIndex = 92
-	bar.Parent = inner
+	bar.ZIndex = 93
 	AddCorner(bar, 4)
 
-	local titleLbl = Instance.new("TextLabel")
-	titleLbl.Size = UDim2.new(1, -68, 1, 0)
-	titleLbl.Position = UDim2.new(0, 16, 0, 0)
+	local iconPod = Instance.new("Frame", inner)
+	iconPod.Size = UDim2.new(0, 28, 0, 28)
+	iconPod.Position = UDim2.new(0, 16, 0.5, -15)
+	iconPod.BackgroundColor3 = statusColor
+	iconPod.BackgroundTransparency = 0.15
+	iconPod.BorderSizePixel = 0
+	iconPod.ZIndex = 93
+	AddCorner(iconPod, 8)
+	local iconLbl = Instance.new("TextLabel", iconPod)
+	iconLbl.Size = UDim2.new(1, 0, 1, 0)
+	iconLbl.BackgroundTransparency = 1
+	iconLbl.Font = Enum.Font.GothamBlack
+	iconLbl.TextSize = 14
+	iconLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconLbl.Text = iconGlyph
+	iconLbl.ZIndex = 94
+
+	local titleLbl = Instance.new("TextLabel", inner)
+	titleLbl.Size = UDim2.new(1, -106, 0, 20)
+	titleLbl.Position = UDim2.new(0, 52, 0, 8)
 	titleLbl.BackgroundTransparency = 1
 	titleLbl.Font = Enum.Font.GothamBold
 	titleLbl.TextSize = 12
@@ -3310,61 +3504,189 @@ NotifyFeatureToggle = function(rawName, isEnabled)
 	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
 	titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
 	titleLbl.Text = cleanName
-	titleLbl.ZIndex = 92
-	titleLbl.Parent = inner
+	titleLbl.ZIndex = 93
 
-	local badge = Instance.new("TextLabel")
-	badge.Size = UDim2.new(0, 42, 0, 22)
-	badge.Position = UDim2.new(1, -50, 0.5, -11)
+	local subLbl = Instance.new("TextLabel", inner)
+	subLbl.Size = UDim2.new(1, -106, 0, 15)
+	subLbl.Position = UDim2.new(0, 52, 0, 28)
+	subLbl.BackgroundTransparency = 1
+	subLbl.Font = Enum.Font.GothamSemibold
+	subLbl.TextSize = 9
+	subLbl.TextColor3 = statusGlow
+	subLbl.TextXAlignment = Enum.TextXAlignment.Left
+	subLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	subLbl.Text = subText
+	subLbl.ZIndex = 93
+
+	local badge = Instance.new("TextLabel", inner)
+	badge.Size = UDim2.new(0, 44, 0, 22)
+	badge.Position = UDim2.new(1, -52, 0.5, -12)
 	badge.BackgroundColor3 = statusColor
 	badge.BorderSizePixel = 0
-	badge.Font = Enum.Font.GothamBold
-	badge.TextSize = 11
+	badge.Font = Enum.Font.GothamBlack
+	badge.TextSize = 10
 	badge.TextColor3 = Color3.fromRGB(255, 255, 255)
 	badge.Text = statusText
-	badge.ZIndex = 92
-	badge.Parent = inner
-	AddCorner(badge, 6)
+	badge.ZIndex = 93
+	AddCorner(badge, 11)
 
-	local entry = { Slot = slot, Inner = inner, Bar = bar, Stroke = stroke, Badge = badge, Title = titleLbl, Token = 1 }
+	local progTrack = Instance.new("Frame", inner)
+	progTrack.Size = UDim2.new(1, -16, 0, 3)
+	progTrack.Position = UDim2.new(0, 8, 1, -5)
+	progTrack.BackgroundColor3 = theme.PanelBg
+	progTrack.BackgroundTransparency = 0.35
+	progTrack.BorderSizePixel = 0
+	progTrack.ClipsDescendants = true
+	progTrack.ZIndex = 93
+	AddCorner(progTrack, 2)
+	local progFill = Instance.new("Frame", progTrack)
+	progFill.Size = UDim2.new(1, 0, 1, 0)
+	progFill.BackgroundColor3 = statusColor
+	progFill.BorderSizePixel = 0
+	progFill.ZIndex = 94
+	AddCorner(progFill, 2)
+
+	local entry = {
+		Slot = slot, Inner = inner, Scale = scale, BgGrad = bgGrad, StrokeGrad = strokeGrad,
+		Bar = bar, IconPod = iconPod, IconLbl = iconLbl, Badge = badge, Title = titleLbl,
+		Sub = subLbl, Progress = progFill, Token = 1
+	}
 	activeFeatureNotifs[cleanName] = entry
+	table.insert(activeNotifOrder, cleanName)
 
-	pcall(function()
-		TweenService:Create(inner, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
-	end)
+	FUI.SafeTween(inner, FUI.TI.NotifIn, { Position = UDim2.new(0, 0, 0, 0) })
+	FUI.SafeTween(scale, FUI.TI.NotifIn, { Scale = 1.0 })
+	FUI.SafeTween(progFill, FUI.TI.NotifDrain, { Size = UDim2.new(0, 0, 1, 0) })
 
-	task.delay(1.85, function()
+	task.delay(toastDur, function()
 		if activeFeatureNotifs[cleanName] == entry and entry.Token == 1 then
-			activeFeatureNotifs[cleanName] = nil
-			if inner and inner.Parent then
-				local tw = TweenService:Create(inner, TweenInfo.new(0.20, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Position = UDim2.new(1, 250, 0, 0) })
-				tw:Play()
-				tw.Completed:Connect(function()
-					if slot and slot.Parent then slot:Destroy() end
-				end)
-			elseif slot and slot.Parent then
-				slot:Destroy()
-			end
+			DismissNotifEntry(cleanName, entry)
 		end
 	end)
 end
+
+local STAR_EMPTY = utf8.char(0x2606)
+local STAR_FILLED = utf8.char(0x2605)
+local STAR_GOLD = Color3.fromRGB(255, 210, 45)
+FUI.FavoriteRegistry = {}
+FUI.FavoriteOrder = {}
+FUI.StarButtons = {}
+FUI.FavoriteCards = {}
+
+FUI.IsFunctionFavorited = function(funcName)
+	if type(savedConfig.FavoriteFunctions) ~= "table" then savedConfig.FavoriteFunctions = {} end
+	return savedConfig.FavoriteFunctions[funcName] == true
+end
+
+FUI.SyncAllStarButtons = function(funcName)
+	local th = GetTheme()
+	local function updateList(nameKey, list)
+		local isFav = FUI.IsFunctionFavorited(nameKey)
+		local writeIdx = 0
+		for i = 1, #list do
+			local btn = list[i]
+			if btn and btn.Parent then
+				writeIdx = writeIdx + 1
+				if writeIdx ~= i then list[writeIdx] = btn end
+				btn.Text = isFav and STAR_FILLED or STAR_EMPTY
+				btn.TextColor3 = isFav and STAR_GOLD or th.TextSecondary
+			end
+		end
+		for i = #list, writeIdx + 1, -1 do list[i] = nil end
+	end
+	if funcName and FUI.StarButtons[funcName] then
+		updateList(funcName, FUI.StarButtons[funcName])
+	else
+		for k, list in pairs(FUI.StarButtons) do
+			updateList(k, list)
+		end
+	end
+end
+table.insert(ThemeObjects.CustomCallbacks, function() FUI.SyncAllStarButtons(nil) end)
+
+FUI.ToggleFavoriteFunction = function(funcName)
+	if not funcName or funcName == "" then return end
+	if type(savedConfig.FavoriteFunctions) ~= "table" then savedConfig.FavoriteFunctions = {} end
+	local nowFav = not (savedConfig.FavoriteFunctions[funcName] == true)
+	if nowFav then
+		savedConfig.FavoriteFunctions[funcName] = true
+	else
+		savedConfig.FavoriteFunctions[funcName] = nil
+	end
+	FUI.SyncAllStarButtons(funcName)
+	if FUI.RebuildFavoritesTab then pcall(FUI.RebuildFavoritesTab) end
+	SaveConfig(false)
+	if NotifyFeatureToggle then
+		NotifyFeatureToggle((nowFav and "Favorited: " or "Unfavorited: ") .. tostring(funcName), nowFav)
+	end
+end
+
+FUI.CreateFavoriteStarButton = function(parent, funcName, pos, size)
+	local btn = Instance.new("TextButton")
+	btn.Name = "TR_FavStarBtn"
+	btn.Size = size or UDim2.new(0, 26, 0, 26)
+	btn.Position = pos or UDim2.new(1, -128, 0.5, -13)
+	btn.BackgroundTransparency = 1
+	btn.BorderSizePixel = 0
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 17
+	btn.AutoButtonColor = false
+	btn.ZIndex = (parent and parent.ZIndex or 2) + 3
+	btn.Parent = parent
+	local sc = Instance.new("UIScale", btn)
+	sc.Scale = 1
+	if not FUI.StarButtons[funcName] then FUI.StarButtons[funcName] = {} end
+	table.insert(FUI.StarButtons[funcName], btn)
+	local isFav = FUI.IsFunctionFavorited(funcName)
+	btn.Text = isFav and STAR_FILLED or STAR_EMPTY
+	btn.TextColor3 = isFav and STAR_GOLD or GetTheme().TextSecondary
+	btn.MouseButton1Click:Connect(function()
+		sc.Scale = 1.35
+		FUI.SafeTween(sc, FUI.TI.ToggleKnob, { Scale = 1.0 })
+		FUI.ToggleFavoriteFunction(funcName)
+	end)
+	return btn
+end
+
+FUI.SyncFavoritesVisuals = function()
+	if FUI.IsInitializing then return end
+	local theme = GetTheme()
+	for _, fEntry in ipairs(FUI.FavoriteCards) do
+		if fEntry.ToggleBtn and fEntry.ToggleBtn.Parent and fEntry.GetState then
+			local ok, st = pcall(fEntry.GetState)
+			local isOn = (ok and st == true)
+			fEntry.ToggleBtn.Text = isOn and "ON" or "OFF"
+			FUI.TweenButtonState(fEntry.ToggleBtn, isOn and theme.Accent or theme.PanelBg, isOn and Color3.fromRGB(255, 255, 255) or theme.TextPrimary, isOn)
+		end
+		if fEntry.JumpBtn and fEntry.JumpBtn.Parent then
+			fEntry.JumpBtn.BackgroundColor3 = theme.PanelBg
+			fEntry.JumpBtn.TextColor3 = theme.TextSecondary
+		end
+		if fEntry.SubLbl and fEntry.SubLbl.Parent then
+			fEntry.SubLbl.TextColor3 = theme.Accent
+		end
+	end
+end
+table.insert(ThemeObjects.CustomCallbacks, FUI.SyncFavoritesVisuals)
 
 FUI.RegisterSearchFunction = function(info)
 	if not FUI.SearchResultsPage or not info or not info.Name then return end
 	local idx = #FUI.SearchCards + 1
 	local sCard = CreateCard(FUI.SearchResultsPage, 46, info.Priority or (100 + idx))
 	sCard.Visible = false
-	local titleLbl = MakeLabel(sCard, UDim2.new(1, -180, 0, 20), UDim2.new(0, 12, 0, 5), info.Name, Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+	local titleLbl = MakeLabel(sCard, UDim2.new(1, -210, 0, 20), UDim2.new(0, 12, 0, 5), info.Name, Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
 	titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
 	local tabStr = tostring(info.TabName or "General")
-	local subLbl = MakeLabel(sCard, UDim2.new(1, -180, 0, 16), UDim2.new(0, 12, 0, 24), "Tab: " .. tabStr, Enum.Font.GothamSemibold, 10, "Accent", Enum.TextXAlignment.Left)
+	local subLbl = MakeLabel(sCard, UDim2.new(1, -210, 0, 16), UDim2.new(0, 12, 0, 24), "Tab: " .. tabStr, Enum.Font.GothamSemibold, 10, "Accent", Enum.TextXAlignment.Left)
 	subLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	FUI.CreateFavoriteStarButton(sCard, info.Name, UDim2.new(1, -190, 0.5, -13), UDim2.new(0, 26, 0, 26))
 	local jumpBtn = MakeButton(sCard, UDim2.new(0, 62, 0, 28), UDim2.new(1, -160, 0.5, -14), "Open Tab", "PanelBg", 10)
 	jumpBtn.MouseButton1Click:Connect(function()
 		if FUI.SwitchToTab then FUI.SwitchToTab(tabStr) end
 	end)
 	local togBtn = MakeButton(sCard, UDim2.new(0, 84, 0, 28), UDim2.new(1, -92, 0.5, -14), "OFF", nil, 12)
 	local entry = {
+		Name = info.Name,
 		Card = sCard,
 		TitleLbl = titleLbl,
 		SubLbl = subLbl,
@@ -3375,9 +3697,14 @@ FUI.RegisterSearchFunction = function(info)
 		GetState = info.GetState,
 		Toggle = info.Toggle
 	}
+	if not FUI.FavoriteRegistry[info.Name] then
+		table.insert(FUI.FavoriteOrder, info.Name)
+	end
+	FUI.FavoriteRegistry[info.Name] = entry
 	togBtn.MouseButton1Click:Connect(function()
 		if entry.Toggle then pcall(entry.Toggle) end
 		if FUI.RefreshSearchCardsVisuals then FUI.RefreshSearchCardsVisuals() end
+		if FUI.SyncFavoritesVisuals then FUI.SyncFavoritesVisuals() end
 	end)
 	table.insert(FUI.SearchCards, entry)
 	SyncSingleSearchCardVisual(entry)
@@ -3392,7 +3719,9 @@ local function CreateToggle(parent, labelText, initialValue, order, callback)
 	EdgeBar.BorderSizePixel = 0
 	RegisterThemeObject(EdgeBar, "BackgroundColor3", "Accent")
 	AddCorner(EdgeBar, 4)
-	local Label = MakeLabel(Card, UDim2.new(1, -114, 1, 0), UDim2.new(0, 14, 0, 0), labelText, Enum.Font.GothamSemibold, 13, "TextPrimary", Enum.TextXAlignment.Left)
+	local Label = MakeLabel(Card, UDim2.new(1, -146, 1, 0), UDim2.new(0, 14, 0, 0), labelText, Enum.Font.GothamSemibold, 13, "TextPrimary", Enum.TextXAlignment.Left)
+	Label.TextTruncate = Enum.TextTruncate.AtEnd
+	FUI.CreateFavoriteStarButton(Card, labelText, UDim2.new(1, -128, 0.5, -13), UDim2.new(0, 26, 0, 26))
 	local ToggleBtn = MakeButton(Card, UDim2.new(0, 86, 0, 28), UDim2.new(1, -98, 0.5, -14), "", nil, 11)
 	local tCorner = ToggleBtn:FindFirstChildOfClass("UICorner")
 	if tCorner then tCorner.CornerRadius = UDim.new(1, 0) end
@@ -3421,14 +3750,11 @@ local function CreateToggle(parent, labelText, initialValue, order, callback)
 		local targetBg = state and theme.Accent or theme.PanelBg
 		local targetBarSize = state and UDim2.new(0, 4, 1, -12) or UDim2.new(0, 3, 0, 0)
 		if animate and isMenuVisible and not FUI.IsInitializing then
-			Knob.Size = UDim2.new(0, 25, 0, 20)
-			TweenService:Create(Knob, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Position = targetPos,
-				Size = UDim2.new(0, 20, 0, 20)
-			}):Play()
-			TweenService:Create(StateLbl, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = targetTxtPos }):Play()
-			TweenService:Create(ToggleBtn, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = targetBg }):Play()
-			TweenService:Create(EdgeBar, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = targetBarSize }):Play()
+			Knob.Size = UDim2.new(0, 24, 0, 20)
+			FUI.SafeTween(Knob, FUI.TI.ToggleKnob, { Position = targetPos, Size = UDim2.new(0, 20, 0, 20) })
+			FUI.SafeTween(StateLbl, FUI.TI.State, { Position = targetTxtPos })
+			FUI.SafeTween(ToggleBtn, FUI.TI.State, { BackgroundColor3 = targetBg })
+			FUI.SafeTween(EdgeBar, FUI.TI.Dot, { Size = targetBarSize })
 		else
 			Knob.Position = targetPos
 			Knob.Size = UDim2.new(0, 20, 0, 20)
@@ -3436,7 +3762,6 @@ local function CreateToggle(parent, labelText, initialValue, order, callback)
 			ToggleBtn.BackgroundColor3 = targetBg
 			EdgeBar.Size = targetBarSize
 		end
-		if FUI.RefreshSearchCardsVisuals then pcall(FUI.RefreshSearchCardsVisuals) end
 	end
 	table.insert(ThemeObjects.CustomCallbacks, function() UpdateToggleVisual(false) end)
 	UpdateToggleVisual(false)
@@ -3446,8 +3771,11 @@ local function CreateToggle(parent, labelText, initialValue, order, callback)
 		if triggerCallback ~= false then
 			NotifyFeatureToggle(labelText, state)
 			if callback then pcall(callback, state) end
+		elseif FUI.RefreshSearchCardsVisuals then
+			pcall(FUI.RefreshSearchCardsVisuals, false)
 		end
 	end
+	FUI.ToggleHandles[labelText] = SetState
 	ToggleBtn.MouseButton1Click:Connect(function() SetState(not state, true) end)
 	if FUI.RegisterSearchFunction then
 		FUI.RegisterSearchFunction({
@@ -3481,23 +3809,27 @@ local function CreateSlider(parent, labelText, minVal, maxVal, initialVal, order
 	ThumbStroke.Thickness = 2
 	RegisterThemeObject(ThumbStroke, "Color", "Accent")
 	local sliding = false
+	local lastVal = initialVal
 	local function UpdateFromInput(inputPosX)
 		local relX = math.clamp(inputPosX - BarBg.AbsolutePosition.X, 0, BarBg.AbsoluteSize.X)
 		local alpha = (BarBg.AbsoluteSize.X > 0) and (relX / BarBg.AbsoluteSize.X) or 0
 		local value = math.floor(minVal + (maxVal - minVal) * alpha + 0.5)
-		TweenService:Create(Fill, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new(alpha, 0, 1, 0) }):Play()
-		ValueLabel.Text = tostring(value)
-		if callback then pcall(callback, value) end
+		Fill.Size = UDim2.new(alpha, 0, 1, 0)
+		if value ~= lastVal then
+			lastVal = value
+			ValueLabel.Text = tostring(value)
+			if callback then pcall(callback, value) end
+		end
 	end
 	BarBg.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			sliding = true
-			TweenService:Create(Thumb, TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 22, 0, 22) }):Play()
+			FUI.SafeTween(Thumb, FUI.TI.HoverIn, { Size = UDim2.new(0, 21, 0, 21) })
 			UpdateFromInput(input.Position.X)
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					sliding = false
-					TweenService:Create(Thumb, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 16, 0, 16) }):Play()
+					FUI.SafeTween(Thumb, FUI.TI.HoverOut, { Size = UDim2.new(0, 16, 0, 16) })
 				end
 			end)
 		end
@@ -3506,30 +3838,120 @@ local function CreateSlider(parent, labelText, minVal, maxVal, initialVal, order
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			if sliding then
 				sliding = false
-				TweenService:Create(Thumb, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 16, 0, 16) }):Play()
+				FUI.SafeTween(Thumb, FUI.TI.HoverOut, { Size = UDim2.new(0, 16, 0, 16) })
 			end
 		end end)) end
 	table.insert(Connections, UserInputService.InputChanged:Connect(function(input)
 		if not sliding then return end
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			if UserInputService.IsMouseButtonPressed and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-				sliding = false return end
+				sliding = false FUI.SafeTween(Thumb, FUI.TI.HoverOut, { Size = UDim2.new(0, 16, 0, 16) }) return end
 			UpdateFromInput(input.Position.X)
 		elseif input.UserInputType == Enum.UserInputType.Touch then
 			UpdateFromInput(input.Position.X) end end)) return { SetValue = function(val)
 			local clamped = math.clamp(val, minVal, maxVal)
-			TweenService:Create(Fill, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.new((clamped - minVal) / (maxVal - minVal), 0, 1, 0) }):Play()
+			lastVal = clamped
+			FUI.SafeTween(Fill, FUI.TI.SliderSet, { Size = UDim2.new((clamped - minVal) / (maxVal - minVal), 0, 1, 0) })
 			ValueLabel.Text = tostring(clamped) end } end
 local Tab1_Dashboard = CreateTab("Themes & Status", E.Chart, 1)
-local Tab2_Waypoints = CreateTab("Waypoints & TP", E.Pin, 2)
-local Tab3_Radar     = CreateTab("Player Radar", E.Radar, 3)
-local Tab4_Items     = CreateTab("Items & Prompts", E.Gem, 4)
-local Tab5_Flight    = CreateTab("Flight & Movement", E.Rocket, 5)
-local Tab6_Instant   = CreateTab("Target Fling", E.Bolt, 6)
-local Tab7_Visuals   = CreateTab("Aimbot & Visuals", E.Target, 7)
-local Tab8_Executor  = CreateTab("Script Executor", E.Laptop, 8)
-local Tab9_Detector  = CreateTab("Hacker Detector", E.Search, 9)
-local Tab10_Avatar   = CreateTab("Avatar Changer", E.Star, 10)
+local Tab0_Favorite  = CreateTab("Favorite", STAR_FILLED, 2)
+local Tab2_Waypoints = CreateTab("Waypoints & TP", E.Pin, 3)
+local Tab3_Radar     = CreateTab("Player Radar", E.Radar, 4)
+local Tab4_Items     = CreateTab("Items & Prompts", E.Gem, 5)
+local Tab5_Flight    = CreateTab("Flight & Movement", E.Rocket, 6)
+local Tab6_Instant   = CreateTab("Target Fling", E.Bolt, 7)
+local Tab7_Visuals   = CreateTab("Aimbot & Visuals", E.Target, 8)
+local Tab8_Executor  = CreateTab("Script Executor", E.Laptop, 9)
+local Tab11_Library  = CreateTab("Saved Scripts", E.Clip, 10)
+local Tab9_Detector  = CreateTab("Hacker Detector", E.Search, 11)
+local Tab10_Avatar   = CreateTab("Avatar Changer", E.Crown, 12)
+
+do
+	CreateSectionHeader(Tab0_Favorite, "Favorite Functions (Click " .. STAR_EMPTY .. " on any toggle across tabs to pin here)", 1)
+	local FavTopCard = CreateCard(Tab0_Favorite, 44, 2)
+	local FavCountLbl = MakeLabel(FavTopCard, UDim2.new(0.62, -14, 1, 0), UDim2.new(0, 12, 0, 0), STAR_FILLED .. " Pinned Favorites: 0", Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+	local ClearFavsBtn = MakeButton(FavTopCard, UDim2.new(0.38, -12, 0, 28), UDim2.new(0.62, 2, 0.5, -14), E.Trash .. " Clear Favorites", "AccentDark", 11)
+	local FavListContainer = Instance.new("Frame", Tab0_Favorite)
+	FavListContainer.LayoutOrder = 3
+	FavListContainer.Size = UDim2.new(1, 0, 0, 0)
+	FavListContainer.AutomaticSize = Enum.AutomaticSize.Y
+	FavListContainer.BackgroundTransparency = 1
+	local FavListLayout = Instance.new("UIListLayout", FavListContainer)
+	FavListLayout.Padding = UDim.new(0, 6)
+	FavListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	FUI.RebuildFavoritesTab = function()
+		if not FavListContainer or not FavListContainer.Parent then return end
+		for _, ch in ipairs(FavListContainer:GetChildren()) do
+			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
+		end
+		table.clear(FUI.FavoriteCards)
+		local theme = GetTheme()
+		local count = 0
+		for _, funcName in ipairs(FUI.FavoriteOrder) do
+			if FUI.IsFunctionFavorited(funcName) then
+				local reg = FUI.FavoriteRegistry[funcName]
+				if reg then
+					count = count + 1
+					local fCard = CreateCard(FavListContainer, 48, count)
+					local unstarBtn = Instance.new("TextButton", fCard)
+					unstarBtn.Size = UDim2.new(0, 28, 0, 28)
+					unstarBtn.Position = UDim2.new(0, 8, 0.5, -14)
+					unstarBtn.BackgroundTransparency = 1
+					unstarBtn.BorderSizePixel = 0
+					unstarBtn.Font = Enum.Font.GothamBold
+					unstarBtn.TextSize = 18
+					unstarBtn.Text = STAR_FILLED
+					unstarBtn.TextColor3 = STAR_GOLD
+					unstarBtn.MouseButton1Click:Connect(function()
+						FUI.ToggleFavoriteFunction(funcName)
+					end)
+
+					local tLbl = MakeLabel(fCard, UDim2.new(1, -214, 0, 20), UDim2.new(0, 40, 0, 5), tostring(reg.Name), Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+					tLbl.TextTruncate = Enum.TextTruncate.AtEnd
+					local sLbl = MakeLabel(fCard, UDim2.new(1, -214, 0, 16), UDim2.new(0, 40, 0, 25), "Tab: " .. tostring(reg.TabName or "General"), Enum.Font.GothamSemibold, 10, "Accent", Enum.TextXAlignment.Left)
+					sLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+					local jBtn = MakeButton(fCard, UDim2.new(0, 62, 0, 28), UDim2.new(1, -162, 0.5, -14), "Open Tab", "PanelBg", 10)
+					jBtn.MouseButton1Click:Connect(function()
+						if FUI.SwitchToTab and reg.TabName then FUI.SwitchToTab(reg.TabName) end
+					end)
+
+					local okSt, curSt = pcall(reg.GetState)
+					local isOn = (okSt and curSt == true)
+					local tBtn = MakeButton(fCard, UDim2.new(0, 84, 0, 28), UDim2.new(1, -94, 0.5, -14), isOn and "ON" or "OFF", nil, 12)
+					FUI.TweenButtonState(tBtn, isOn and theme.Accent or theme.PanelBg, isOn and Color3.fromRGB(255, 255, 255) or theme.TextPrimary, isOn)
+					tBtn.MouseButton1Click:Connect(function()
+						if reg.Toggle then pcall(reg.Toggle) end
+						if FUI.RefreshSearchCardsVisuals then FUI.RefreshSearchCardsVisuals() end
+						if FUI.SyncFavoritesVisuals then FUI.SyncFavoritesVisuals() end
+					end)
+
+					table.insert(FUI.FavoriteCards, {
+						Card = fCard,
+						SubLbl = sLbl,
+						JumpBtn = jBtn,
+						ToggleBtn = tBtn,
+						GetState = reg.GetState
+					})
+				end
+			end
+		end
+		FavCountLbl.Text = STAR_FILLED .. " Pinned Favorites: " .. tostring(count)
+		if count == 0 then
+			local emptyLbl = MakeLabel(FavListContainer, UDim2.new(1, -12, 0, 42), nil, "No favorite functions pinned yet! Go to any tab and click the small " .. STAR_EMPTY .. " star next to any toggle to pin it here.", Enum.Font.GothamSemibold, 11, "TextSecondary", Enum.TextXAlignment.Center)
+			emptyLbl.TextWrapped = true
+		end
+	end
+
+	ClearFavsBtn.MouseButton1Click:Connect(function()
+		savedConfig.FavoriteFunctions = {}
+		FUI.SyncAllStarButtons(nil)
+		FUI.RebuildFavoritesTab()
+		SaveConfig(false)
+		NotifyFeatureToggle("Cleared All Favorites", false)
+	end)
+end
 local PerfLabel, CursorUnlockedOverride, SetMouseLockState, ActiveKeybindCaptureCallback, TryAssignUniqueKeybind
 local GetRootPart, GetCharacterFromPlayer, GetCachedCharBaseParts, freezePosition, lastSafeAntiFlingCF, SafeTeleportToCoords
 local function SetupTab1()
@@ -3556,6 +3978,9 @@ local function FindKeybindConflict(keyName, ignoreSlot)
 	end
 	if ignoreSlot ~= "AutoShoot" and (Config.AutoShootKeybind or "Z") == keyName then
 		return "Auto Shoot"
+	end
+	if ignoreSlot ~= "RadialWheel" and (Config.RadialWheelKeybind or "V") == keyName then
+		return "Radial Quick-Action Wheel"
 	end
 	if type(savedConfig.Waypoints) == "table" then
 		for idx, wp in ipairs(savedConfig.Waypoints) do
@@ -3605,7 +4030,7 @@ TryAssignUniqueKeybind = function(keyName, slotId, applyFn, refreshFn, btnObj)
 	return true
 end
 CreateSectionHeader(Tab1_Dashboard, "GUI Design Style (1. Default | 2. Apple Liquid Glass | 3. Neon Cyber-HUD)", 1)
-local DesignCard = CreateCard(Tab1_Dashboard, 0, 1)
+local DesignCard = CreateCard(Tab1_Dashboard, 0, 2)
 DesignCard.AutomaticSize = Enum.AutomaticSize.Y
 local DesignPad = Instance.new("UIPadding")
 DesignPad.PaddingTop = UDim.new(0, 8) DesignPad.PaddingBottom = UDim.new(0, 8)
@@ -3658,8 +4083,8 @@ for idx, dOpt in ipairs(DesignOptions) do
 	end)
 end
 
-CreateSectionHeader(Tab1_Dashboard, "UI Theme Customizer (6 Themes | Shades Liquid Glass & Cyber-HUD)", 2)
-local ThemeCard = CreateCard(Tab1_Dashboard, 0, 2)
+CreateSectionHeader(Tab1_Dashboard, "UI Theme Customizer (6 Themes | Shades Liquid Glass & Cyber-HUD)", 3)
+local ThemeCard = CreateCard(Tab1_Dashboard, 0, 4)
 ThemeCard.AutomaticSize = Enum.AutomaticSize.Y
 local ThemePad = Instance.new("UIPadding")
 ThemePad.PaddingTop = UDim.new(0, 8) ThemePad.PaddingBottom = UDim.new(0, 8)
@@ -3683,8 +4108,8 @@ for idx, themeName in ipairs(ThemeOrder) do
 	TBtn.MouseButton1Click:Connect(function() ApplyTheme(themeName) end)
 end
 RefreshDesignButtons()
-CreateSectionHeader(Tab1_Dashboard, "UI Open & Close Animation (3 Styles)", 3)
-local AnimCard = CreateCard(Tab1_Dashboard, 0, 4)
+CreateSectionHeader(Tab1_Dashboard, "UI Open & Close Animation (3 Styles)", 5)
+local AnimCard = CreateCard(Tab1_Dashboard, 0, 6)
 AnimCard.AutomaticSize = Enum.AutomaticSize.Y
 local AnimPad = Instance.new("UIPadding")
 AnimPad.PaddingTop = UDim.new(0, 8) AnimPad.PaddingBottom = UDim.new(0, 8)
@@ -3726,14 +4151,15 @@ for idx, animOpt in ipairs(AnimOptions) do
 	end)
 end
 RefreshAnimButtons()
-CreateSectionHeader(Tab1_Dashboard, "Live Performance & Mouse Lock (Shift Lock) Controls", 5)
-local PerfCard = CreateCard(Tab1_Dashboard, 46, 6) PerfLabel = Instance.new("TextLabel")
+CreateSectionHeader(Tab1_Dashboard, "Live Performance & Mouse Lock (Shift Lock) Controls", 7)
+local PerfCard = CreateCard(Tab1_Dashboard, 46, 8) PerfLabel = Instance.new("TextLabel")
 PerfLabel.Size = UDim2.new(1, -24, 1, 0) PerfLabel.Position = UDim2.new(0, 12, 0, 0)
 PerfLabel.BackgroundTransparency = 1 PerfLabel.Font = Enum.Font.GothamSemibold PerfLabel.TextSize = 13
 PerfLabel.TextXAlignment = Enum.TextXAlignment.Left
 PerfLabel.Text = "FPS: --  |  Ping: -- ms  |  Mouse Lock [M]: OFF" PerfLabel.Parent = PerfCard
 RegisterThemeObject(PerfLabel, "TextColor3", "TextPrimary") CursorUnlockedOverride = false
-local MouseLockCard = CreateCard(Tab1_Dashboard, 94, 7)
+local MouseLockCard = CreateCard(Tab1_Dashboard, 94, 9)
+FUI.CreateFavoriteStarButton(MouseLockCard, "Mouse Lock / Shift Lock [M]", UDim2.new(1, -30, 0, 13), UDim2.new(0, 24, 0, 24))
 local mouseLockToggleBtn = Instance.new("TextButton", MouseLockCard)
 mouseLockToggleBtn.Size = UDim2.new(0.5, -14, 0, 34)
 mouseLockToggleBtn.Position = UDim2.new(0, 10, 0, 10) mouseLockToggleBtn.Font = Enum.Font.GothamBold
@@ -3824,7 +4250,7 @@ end) mouseLockKeyAssignBtn.MouseButton1Click:Connect(function()
 mouseLockKeyDeleteBtn.MouseButton1Click:Connect(function() Config.MouseLockKeybind = "None"
 	ActiveKeybindCaptureCallback = nil RefreshMouseLockUI() SaveConfig(false) end) RefreshMouseLockUI()
 local FloatPillToggleCtrl
-FloatPillToggleCtrl = CreateToggle(Tab1_Dashboard, "Floating Hub Pill Icon (Mobile: Always ON | PC: Toggle)", isMobileDevice or (Config.FloatingIconEnabled ~= false), 8, function(state)
+FloatPillToggleCtrl = CreateToggle(Tab1_Dashboard, "Floating Hub Pill Icon (Mobile: Always ON | PC: Toggle)", isMobileDevice or (Config.FloatingIconEnabled ~= false), 10, function(state)
 	if isMobileDevice then
 		Config.FloatingIconEnabled = true
 		savedConfig.Settings.FloatingIconEnabled = true
@@ -3843,7 +4269,7 @@ FloatPillToggleCtrl = CreateToggle(Tab1_Dashboard, "Floating Hub Pill Icon (Mobi
 	SaveConfig(false)
 end)
 if isMobileDevice then
-	local MobFloatStyleCard = CreateCard(Tab1_Dashboard, 0, 8)
+	local MobFloatStyleCard = CreateCard(Tab1_Dashboard, 0, 11)
 	MobFloatStyleCard.AutomaticSize = Enum.AutomaticSize.Y
 	local mfsPad = Instance.new("UIPadding", MobFloatStyleCard)
 	mfsPad.PaddingTop = UDim.new(0, 8) mfsPad.PaddingBottom = UDim.new(0, 8)
@@ -3889,10 +4315,10 @@ if isMobileDevice then
 	end
 	RefreshMobStyleBtns()
 end
-CreateSectionHeader(Tab1_Dashboard, "Protection & Physics Stabilizers", 9)
-CreateToggle(Tab1_Dashboard, "Anti-AFK Protection (VirtualUser Idle Bypass)", Config.AntiAFK, 10, function(state)
+CreateSectionHeader(Tab1_Dashboard, "Protection & Physics Stabilizers", 12)
+CreateToggle(Tab1_Dashboard, "Anti-AFK Protection (VirtualUser Idle Bypass)", Config.AntiAFK, 13, function(state)
 	Config.AntiAFK = state SaveConfig(false) end)
-CreateToggle(Tab1_Dashboard, "Super Anti-Fling Shield (No-Collide Players + Velocity Lock)", Config.AntiFlingEnabled ~= false, 11, function(state)
+CreateToggle(Tab1_Dashboard, "Super Anti-Fling Shield (No-Collide Players + Velocity Lock)", Config.AntiFlingEnabled ~= false, 14, function(state)
 	Config.AntiFlingEnabled = state if not state then lastSafeAntiFlingCF = nil pcall(function()
 			for _, plr in ipairs(Players:GetPlayers()) do if plr ~= player and plr.Character then
 					for _, part in ipairs(plr.Character:GetDescendants()) do
@@ -3900,14 +4326,952 @@ CreateToggle(Tab1_Dashboard, "Super Anti-Fling Shield (No-Collide Players + Velo
 							part.CanCollide = true end end end end end) end SaveConfig(false) end)
 genv.TR_AntiCheatActive = (Config.AntiCheatBypass ~= false) local function DisableAntiCheatSignals(char)
 end
-CreateToggle(Tab1_Dashboard, "Undetected Anti-Cheat Bypass (Fly, Speed, Jump & Teleport)", Config.AntiCheatBypass ~= false, 12, function(state)
+CreateToggle(Tab1_Dashboard, "Undetected Anti-Cheat Bypass (Fly, Speed, Jump & Teleport)", Config.AntiCheatBypass ~= false, 15, function(state)
 	Config.AntiCheatBypass = state genv.TR_AntiCheatActive = state
 	if state then DisableAntiCheatSignals(player.Character) end SaveConfig(false) end)
 if Config.AntiCheatBypass ~= false then DisableAntiCheatSignals(player.Character) end
 table.insert(Connections, player.CharacterAdded:Connect(function(newChar) task.wait(0.25)
 	if Config.AntiCheatBypass ~= false then DisableAntiCheatSignals(newChar) end end))
+FUI.SessionStartClock = os.clock()
+FUI.AntiAfkSaves = 0
 table.insert(Connections, player.Idled:Connect(function() if Config.AntiAFK then pcall(function()
-			VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new()) end) end end)) end if FUI.SetLoadProgress then FUI.SetLoadProgress(20, "Loading Themes & Status...") end SetupTab1()
+	VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new())
+	FUI.AntiAfkSaves = (FUI.AntiAfkSaves or 0) + 1
+	if FUI.UpdateSessionUptimeLabel then FUI.UpdateSessionUptimeLabel() end
+end) end end))
+
+CreateSectionHeader(Tab1_Dashboard, "Performance Booster & Floating Telemetry HUD", 16)
+do
+	local fpsOrigLighting = nil
+	local fpsOrigTerrain = nil
+	local fpsOrigEffects = {}
+	local fpsOrigParticles = {}
+	local fpsOrigParts = {}
+	local fpsAddedConn = nil
+
+	local function IsInAnyPlayerCharacter(inst)
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr.Character and inst:IsDescendantOf(plr.Character) then return true end
+		end
+		return false
+	end
+
+	local function OptimizeSingleInstance(inst)
+		if not inst or not inst.Parent then return end
+		if inst:IsA("PostEffect") then
+			if inst.Name == "TR_LiquidGlassBlur" then return end
+			if fpsOrigEffects[inst] == nil then fpsOrigEffects[inst] = inst.Enabled end
+			pcall(function() inst.Enabled = false end)
+		elseif inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") or inst:IsA("Fire") or inst:IsA("Smoke") or inst:IsA("Sparkles") then
+			if fpsOrigParticles[inst] == nil then fpsOrigParticles[inst] = inst.Enabled end
+			pcall(function() inst.Enabled = false end)
+		elseif inst:IsA("BasePart") and inst.Name ~= "TR_FakeFloor" and not inst:IsA("Terrain") then
+			if IsInAnyPlayerCharacter(inst) then return end
+			if not fpsOrigParts[inst] then
+				fpsOrigParts[inst] = { Material = inst.Material, CastShadow = inst.CastShadow, Reflectance = inst.Reflectance }
+			end
+			pcall(function()
+				inst.Material = Enum.Material.SmoothPlastic
+				inst.CastShadow = false
+				inst.Reflectance = 0
+			end)
+		end
+	end
+
+	FUI.ApplyFpsBooster = function()
+		if not fpsOrigLighting then
+			fpsOrigLighting = {
+				GlobalShadows = Lighting.GlobalShadows,
+				ShadowSoftness = Lighting.ShadowSoftness
+			}
+		end
+		pcall(function()
+			Lighting.GlobalShadows = false
+			Lighting.ShadowSoftness = 0
+		end)
+		local terrain = workspace:FindFirstChildOfClass("Terrain")
+		if terrain then
+			if not fpsOrigTerrain then
+				fpsOrigTerrain = {
+					WaterWaveSize = terrain.WaterWaveSize,
+					WaterWaveSpeed = terrain.WaterWaveSpeed,
+					WaterReflectance = terrain.WaterReflectance,
+					WaterTransparency = terrain.WaterTransparency
+				}
+			end
+			pcall(function()
+				terrain.WaterWaveSize = 0
+				terrain.WaterWaveSpeed = 0
+				terrain.WaterReflectance = 0
+				terrain.WaterTransparency = 0
+			end)
+		end
+		pcall(function()
+			for _, desc in ipairs(Lighting:GetDescendants()) do
+				if desc:IsA("PostEffect") then OptimizeSingleInstance(desc) end
+			end
+		end)
+		task.spawn(function()
+			local list = workspace:GetDescendants()
+			for i = 1, #list do
+				if not Config.FpsBoosterEnabled or isClosingPermanently then break end
+				OptimizeSingleInstance(list[i])
+				if i % 350 == 0 then RunService.Heartbeat:Wait() end
+			end
+		end)
+		if not fpsAddedConn then
+			fpsAddedConn = workspace.DescendantAdded:Connect(function(desc)
+				if Config.FpsBoosterEnabled and not isClosingPermanently then
+					OptimizeSingleInstance(desc)
+				end
+			end)
+			FUI._FpsAddedConn = fpsAddedConn
+		end
+	end
+
+	FUI.RestoreFpsBooster = function()
+		if fpsAddedConn then
+			pcall(function() fpsAddedConn:Disconnect() end)
+			fpsAddedConn = nil
+			FUI._FpsAddedConn = nil
+		end
+		if fpsOrigLighting then
+			pcall(function()
+				if not Config.FullbrightEnabled then
+					Lighting.GlobalShadows = fpsOrigLighting.GlobalShadows
+				end
+				Lighting.ShadowSoftness = fpsOrigLighting.ShadowSoftness
+			end)
+			fpsOrigLighting = nil
+		end
+		local terrain = workspace:FindFirstChildOfClass("Terrain")
+		if terrain and fpsOrigTerrain then
+			pcall(function()
+				terrain.WaterWaveSize = fpsOrigTerrain.WaterWaveSize
+				terrain.WaterWaveSpeed = fpsOrigTerrain.WaterWaveSpeed
+				terrain.WaterReflectance = fpsOrigTerrain.WaterReflectance
+				terrain.WaterTransparency = fpsOrigTerrain.WaterTransparency
+			end)
+			fpsOrigTerrain = nil
+		end
+		for eff, origEn in pairs(fpsOrigEffects) do
+			if eff and eff.Parent then pcall(function() eff.Enabled = origEn end) end
+		end
+		table.clear(fpsOrigEffects)
+		for pt, origEn in pairs(fpsOrigParticles) do
+			if pt and pt.Parent then pcall(function() pt.Enabled = origEn end) end
+		end
+		table.clear(fpsOrigParticles)
+		for part, orig in pairs(fpsOrigParts) do
+			if part and part.Parent then
+				pcall(function()
+					part.Material = orig.Material
+					part.CastShadow = orig.CastShadow
+					part.Reflectance = orig.Reflectance
+				end)
+			end
+		end
+		table.clear(fpsOrigParts)
+	end
+
+	CreateToggle(Tab1_Dashboard, "FPS Booster & Potato Mode (Lowers Textures/Particles/Shadows)", Config.FpsBoosterEnabled == true, 17, function(state)
+		Config.FpsBoosterEnabled = state
+		savedConfig.Settings.FpsBoosterEnabled = state
+		if state then FUI.ApplyFpsBooster() else FUI.RestoreFpsBooster() end
+		SaveConfig(false)
+	end)
+	if Config.FpsBoosterEnabled == true then task.defer(FUI.ApplyFpsBooster) end
+end
+
+do
+	local hudW = math.clamp(tonumber(Config.TelemetryHudWidth) or 248, 210, 420)
+	local hudH = math.clamp(tonumber(Config.TelemetryHudHeight) or 114, 96, 220)
+	local hudLocked = (Config.TelemetryHudLocked == true)
+
+	local TelemetryHud = Instance.new("Frame")
+	TelemetryHud.Name = "TR_TelemetryHUD"
+	TelemetryHud.Size = UDim2.new(0, hudW, 0, hudH)
+	TelemetryHud.Position = UDim2.new(0, 14, 1, -(hudH + 18))
+	TelemetryHud.BackgroundTransparency = 0.08
+	TelemetryHud.BorderSizePixel = 0
+	TelemetryHud.Active = true
+	TelemetryHud.ClipsDescendants = true
+	TelemetryHud.Visible = (Config.TelemetryHudEnabled == true)
+	TelemetryHud.ZIndex = 60
+	TelemetryHud.Parent = ScreenGui
+	RegisterThemeObject(TelemetryHud, "BackgroundColor3", "MainBg")
+	local hudCorner = AddCorner(TelemetryHud, 12)
+	local hudStroke = Instance.new("UIStroke", TelemetryHud)
+	hudStroke.Thickness = 1.6
+	hudStroke.Transparency = 0.20
+	RegisterThemeObject(hudStroke, "Color", "Stroke")
+	local hudGrad = Instance.new("UIGradient", TelemetryHud)
+	hudGrad.Rotation = -35
+	hudGrad.Enabled = false
+	local hudStrokeGrad = Instance.new("UIGradient", hudStroke)
+	hudStrokeGrad.Rotation = 35
+	hudStrokeGrad.Enabled = false
+
+	local hudTopLaser = Instance.new("Frame", TelemetryHud)
+	hudTopLaser.Size = UDim2.new(1, -16, 0, 2)
+	hudTopLaser.Position = UDim2.new(0, 8, 0, 1)
+	hudTopLaser.BorderSizePixel = 0
+	hudTopLaser.BackgroundTransparency = 0.15
+	hudTopLaser.ZIndex = 62
+	RegisterThemeObject(hudTopLaser, "BackgroundColor3", "Accent")
+
+	local hudHeader = Instance.new("Frame", TelemetryHud)
+	hudHeader.Size = UDim2.new(1, 0, 0, 26)
+	hudHeader.BackgroundTransparency = 0.22
+	hudHeader.BorderSizePixel = 0
+	hudHeader.ZIndex = 61
+	RegisterThemeObject(hudHeader, "BackgroundColor3", "PanelBg")
+	local hudTitle = MakeLabel(hudHeader, UDim2.new(1, -66, 1, 0), UDim2.new(0, 10, 0, 0), E.Bolt .. " T.R TELEMETRY HUD", Enum.Font.GothamBlack, 11, "Accent", Enum.TextXAlignment.Left)
+	hudTitle.TextTruncate = Enum.TextTruncate.AtEnd
+	hudTitle.ZIndex = 62
+
+	local hudLockBtn = Instance.new("TextButton", hudHeader)
+	hudLockBtn.Size = UDim2.new(0, 24, 0, 20)
+	hudLockBtn.Position = UDim2.new(1, -54, 0.5, -10)
+	hudLockBtn.BorderSizePixel = 0
+	hudLockBtn.Font = Enum.Font.GothamBold
+	hudLockBtn.TextSize = 11
+	hudLockBtn.AutoButtonColor = false
+	hudLockBtn.ZIndex = 63
+	AddCorner(hudLockBtn, 5)
+	local hudLockStroke = Instance.new("UIStroke", hudLockBtn)
+	hudLockStroke.Thickness = 1
+
+	local hudHideBtn = Instance.new("TextButton", hudHeader)
+	hudHideBtn.Size = UDim2.new(0, 22, 0, 20)
+	hudHideBtn.Position = UDim2.new(1, -26, 0.5, -10)
+	hudHideBtn.BackgroundColor3 = Color3.fromRGB(170, 42, 58)
+	hudHideBtn.BorderSizePixel = 0
+	hudHideBtn.Font = Enum.Font.GothamBold
+	hudHideBtn.TextSize = 11
+	hudHideBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hudHideBtn.Text = E.Close
+	hudHideBtn.ZIndex = 63
+	AddCorner(hudHideBtn, 5)
+
+	local hudStatsLbl = MakeLabel(TelemetryHud, UDim2.new(1, -18, 0, 18), UDim2.new(0, 10, 0, 31), "FPS: --   |   Ping: -- ms", Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+	hudStatsLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	hudStatsLbl.ZIndex = 62
+
+	local hudCoordsLbl = MakeLabel(TelemetryHud, UDim2.new(1, -18, 0, 16), UDim2.new(0, 10, 0, 51), "XYZ: 0, 0, 0", Enum.Font.Code, 11, "TextSecondary", Enum.TextXAlignment.Left)
+	hudCoordsLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	hudCoordsLbl.ZIndex = 62
+
+	local hudBadgesLbl = MakeLabel(TelemetryHud, UDim2.new(1, -24, 1, -74), UDim2.new(0, 10, 0, 70), "Active: Idle", Enum.Font.GothamSemibold, 10, "Accent", Enum.TextXAlignment.Left)
+	hudBadgesLbl.TextWrapped = true
+	hudBadgesLbl.TextYAlignment = Enum.TextYAlignment.Top
+	hudBadgesLbl.ZIndex = 62
+
+	local hudResizeGrip = Instance.new("TextButton", TelemetryHud)
+	hudResizeGrip.Size = UDim2.new(0, 18, 0, 18)
+	hudResizeGrip.Position = UDim2.new(1, -18, 1, -18)
+	hudResizeGrip.BackgroundTransparency = 1
+	hudResizeGrip.Font = Enum.Font.GothamBold
+	hudResizeGrip.TextSize = 12
+	hudResizeGrip.Text = E.Grip
+	hudResizeGrip.ZIndex = 64
+	RegisterThemeObject(hudResizeGrip, "TextColor3", "Accent")
+
+	local function SyncTelemetryLockVisual()
+		local eff = GetTheme()
+		local lockCol = Color3.fromRGB(245, 166, 35)
+		hudLockBtn.Text = hudLocked and utf8.char(0x1F512) or utf8.char(0x1F513)
+		hudLockBtn.BackgroundColor3 = hudLocked and eff.PanelBg:Lerp(lockCol, 0.35) or eff.CardBg
+		hudLockBtn.TextColor3 = hudLocked and Color3.fromRGB(255, 224, 120) or eff.Accent
+		hudLockStroke.Color = hudLocked and lockCol or eff.Stroke
+		hudLockStroke.Transparency = hudLocked and 0.15 or 0.45
+		hudResizeGrip.Visible = not hudLocked
+	end
+
+	FUI.ApplyTelemetryHudStyle = function()
+		if not TelemetryHud or not TelemetryHud.Parent then return end
+		local d = Config.GuiDesign or "Default"
+		local eff = GetTheme()
+		TelemetryHud.BackgroundColor3 = eff.MainBg
+		hudHeader.BackgroundColor3 = eff.PanelBg
+		hudTitle.TextColor3 = eff.Accent
+		hudStatsLbl.TextColor3 = eff.TextPrimary
+		hudCoordsLbl.TextColor3 = eff.TextSecondary
+		hudBadgesLbl.TextColor3 = eff.Accent
+		hudResizeGrip.TextColor3 = eff.Accent
+		hudTopLaser.BackgroundColor3 = eff.Accent
+		if d == "LiquidGlass" then
+			TelemetryHud.BackgroundTransparency = 0.46
+			hudHeader.BackgroundTransparency = 0.56
+			hudCorner.CornerRadius = UDim.new(0, 15)
+			hudStroke.Thickness = 1.8
+			hudStroke.Transparency = 0.08
+			hudStroke.Color = Color3.fromRGB(255, 255, 255)
+			hudGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, eff.MainBg:Lerp(Color3.fromRGB(255, 255, 255), 0.34)),
+				ColorSequenceKeypoint.new(0.5, eff.MainBg),
+				ColorSequenceKeypoint.new(1, eff.MainBg:Lerp(Color3.fromRGB(210, 234, 255), 0.26))
+			})
+			hudGrad.Enabled = true
+			hudStrokeGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.45, eff.Stroke),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+			})
+			hudStrokeGrad.Enabled = true
+		elseif d == "CyberHud" then
+			TelemetryHud.BackgroundTransparency = 0.05
+			hudHeader.BackgroundTransparency = 0.10
+			hudCorner.CornerRadius = UDim.new(0, 7)
+			hudStroke.Thickness = 2.4
+			hudStroke.Transparency = 0.0
+			hudStroke.Color = Color3.fromRGB(255, 255, 255)
+			hudGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 14, 30):Lerp(eff.Accent, 0.22)),
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(4, 5, 11)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 8, 32):Lerp(eff.Stroke, 0.24))
+			})
+			hudGrad.Enabled = true
+			hudStrokeGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, eff.Accent),
+				ColorSequenceKeypoint.new(0.5, eff.Stroke),
+				ColorSequenceKeypoint.new(1, eff.Accent)
+			})
+			hudStrokeGrad.Enabled = true
+		else
+			TelemetryHud.BackgroundTransparency = 0.08
+			hudHeader.BackgroundTransparency = 0.22
+			hudCorner.CornerRadius = UDim.new(0, 12)
+			hudStroke.Thickness = 1.6
+			hudStroke.Transparency = 0.22
+			hudStroke.Color = eff.Stroke
+			hudGrad.Enabled = false
+			hudStrokeGrad.Enabled = false
+		end
+		SyncTelemetryLockVisual()
+	end
+	table.insert(ThemeObjects.CustomCallbacks, FUI.ApplyTelemetryHudStyle)
+
+	local hudDragging, hudResizing = false, false
+	local hudDragStart, hudStartPos, hudResizeStart, hudStartSize = nil, nil, nil, nil
+	TelemetryHud.InputBegan:Connect(function(inp)
+		if hudLocked or hudResizing then return end
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			hudDragging = true
+			hudDragStart = inp.Position
+			hudStartPos = TelemetryHud.Position
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then hudDragging = false end
+			end)
+		end
+	end)
+	hudResizeGrip.InputBegan:Connect(function(inp)
+		if hudLocked then return end
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			hudDragging = false
+			hudResizing = true
+			hudResizeStart = inp.Position
+			hudStartSize = Vector2.new(TelemetryHud.AbsoluteSize.X, TelemetryHud.AbsoluteSize.Y)
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					hudResizing = false
+					Config.TelemetryHudWidth = math.floor(TelemetryHud.AbsoluteSize.X + 0.5)
+					Config.TelemetryHudHeight = math.floor(TelemetryHud.AbsoluteSize.Y + 0.5)
+					savedConfig.Settings.TelemetryHudWidth = Config.TelemetryHudWidth
+					savedConfig.Settings.TelemetryHudHeight = Config.TelemetryHudHeight
+					SaveConfig(false)
+				end
+			end)
+		end
+	end)
+	table.insert(Connections, UserInputService.InputChanged:Connect(function(inp)
+		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+		if hudLocked then hudDragging = false hudResizing = false return end
+		if hudResizing and hudResizeStart and hudStartSize then
+			local d = inp.Position - hudResizeStart
+			local nw = math.clamp(math.floor(hudStartSize.X + d.X + 0.5), 210, 420)
+			local nh = math.clamp(math.floor(hudStartSize.Y + d.Y + 0.5), 96, 220)
+			TelemetryHud.Size = UDim2.new(0, nw, 0, nh)
+		elseif hudDragging and hudDragStart and hudStartPos then
+			local d = inp.Position - hudDragStart
+			local cam = workspace.CurrentCamera
+			local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+			local curW, curH = TelemetryHud.AbsoluteSize.X, TelemetryHud.AbsoluteSize.Y
+			local rawX = (hudStartPos.X.Scale * vs.X) + hudStartPos.X.Offset + d.X
+			local rawY = (hudStartPos.Y.Scale * vs.Y) + hudStartPos.Y.Offset + d.Y
+			local cx = math.clamp(rawX, 4, math.max(4, vs.X - curW - 4))
+			local cy = math.clamp(rawY, 4, math.max(4, vs.Y - curH - 4))
+			TelemetryHud.Position = UDim2.new(0, cx, 0, cy)
+		end
+	end))
+
+	hudLockBtn.MouseButton1Click:Connect(function()
+		hudLocked = not hudLocked
+		Config.TelemetryHudLocked = hudLocked
+		savedConfig.Settings.TelemetryHudLocked = hudLocked
+		if hudLocked then hudDragging = false hudResizing = false end
+		SyncTelemetryLockVisual()
+		SaveConfig(false)
+		NotifyFeatureToggle("Telemetry HUD Position Lock", hudLocked)
+	end)
+
+	local hudToggleCtrl = nil
+	hudHideBtn.MouseButton1Click:Connect(function()
+		Config.TelemetryHudEnabled = false
+		savedConfig.Settings.TelemetryHudEnabled = false
+		TelemetryHud.Visible = false
+		if hudToggleCtrl then hudToggleCtrl.SetState(false, false) end
+		SaveConfig(false)
+		NotifyFeatureToggle("Floating Telemetry HUD", false)
+	end)
+
+	hudToggleCtrl = CreateToggle(Tab1_Dashboard, "Floating Mini Telemetry HUD (FPS, Ping, XYZ & Badges | Drag/Resize/Lock)", Config.TelemetryHudEnabled == true, 18, function(state)
+		Config.TelemetryHudEnabled = state
+		savedConfig.Settings.TelemetryHudEnabled = state
+		TelemetryHud.Visible = state and not isClosingPermanently
+		SaveConfig(false)
+	end)
+	CreateToggle(Tab1_Dashboard, "Toggle Feature Notifications (Animated Toast Alerts)", Config.ToggleNotifsEnabled ~= false, 19, function(state)
+		Config.ToggleNotifsEnabled = state
+		savedConfig.Settings.ToggleNotifsEnabled = state
+		if not state and FUI.ClearAllNotifications then pcall(FUI.ClearAllNotifications) end
+		SaveConfig(false)
+	end)
+
+	FUI.TelemetryHudFrame = TelemetryHud
+	FUI.UpdateTelemetryHud = function(fpsVal, pingMs, rootPart, badgesText)
+		if not TelemetryHud or not TelemetryHud.Visible or isClosingPermanently then return end
+		hudStatsLbl.Text = string.format("FPS: %d   |   Ping: %d ms", fpsVal or 0, pingMs or 0)
+		if rootPart then
+			local p = rootPart.Position
+			hudCoordsLbl.Text = string.format("XYZ: %.0f, %.0f, %.0f", p.X, p.Y, p.Z)
+		else
+			hudCoordsLbl.Text = "XYZ: --, --, --"
+		end
+		hudBadgesLbl.Text = "Active: " .. ((badgesText and badgesText ~= "") and badgesText or "Idle")
+	end
+	FUI.ApplyTelemetryHudStyle()
+end
+
+CreateSectionHeader(Tab1_Dashboard, "Master Keybind Overview Panel (Edit, Delete or Reset All Shortcuts)", 20)
+do
+	local kbExpanded = false
+	local KeybindCard = CreateCard(Tab1_Dashboard, 44, 21)
+	KeybindCard.ClipsDescendants = true
+
+	local kbHeaderBtn = MakeButton(KeybindCard, UDim2.new(0.68, -14, 0, 28), UDim2.new(0, 10, 0, 8), E.Bolt .. " Master Keybinds Overview [Expand]", "PanelBg", 11)
+	local kbResetAllBtn = MakeButton(KeybindCard, UDim2.new(0.32, -10, 0, 28), UDim2.new(0.68, 2, 0, 8), E.Refresh .. " Reset Defaults", "AccentDark", 11)
+
+	local kbListHolder = Instance.new("Frame", KeybindCard)
+	kbListHolder.Size = UDim2.new(1, -20, 0, 282)
+	kbListHolder.Position = UDim2.new(0, 10, 0, 44)
+	kbListHolder.BackgroundTransparency = 1
+	kbListHolder.Visible = false
+	local kbLayout = Instance.new("UIListLayout", kbListHolder)
+	kbLayout.Padding = UDim.new(0, 5)
+	kbLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local keybindSpecs = {
+		{ Label = "Mouse Lock / Shift Lock", Slot = "MouseLock", Key = "MouseLockKeybind", Default = "M" },
+		{ Label = "Flight Toggle", Slot = "Flight", Key = "FlyKeybind", Default = "E" },
+		{ Label = "Freecam Explorer", Slot = "Freecam", Key = "FreecamKeybind", Default = "C" },
+		{ Label = "Normal Aimbot", Slot = "Aimbot", Key = "AimbotKeybind", Default = "Q" },
+		{ Label = "Target Player Aimbot", Slot = "TargetAimbot", Key = "TargetAimbotKeybind", Default = "T" },
+		{ Label = "Auto-Shoot / Triggerbot", Slot = "AutoShoot", Key = "AutoShootKeybind", Default = "Z" },
+		{ Label = "Radial Quick-Action Wheel (Hold)", Slot = "RadialWheel", Key = "RadialWheelKeybind", Default = "V" }
+	}
+	local kbRowButtons = {}
+
+	local function RefreshMasterKeybindPanel()
+		for _, spec in ipairs(keybindSpecs) do
+			local btn = kbRowButtons[spec.Slot]
+			if btn and btn.Parent then
+				btn.Text = "[" .. tostring(Config[spec.Key] or "None") .. "]"
+			end
+		end
+	end
+	FUI.RefreshMasterKeybindPanel = RefreshMasterKeybindPanel
+
+	local function SyncAllHubKeybindDisplays()
+		RefreshMasterKeybindPanel()
+		if RefreshMouseLockUI then pcall(RefreshMouseLockUI) end
+		if FUI.RefreshFlightUI then pcall(FUI.RefreshFlightUI) end
+		if FUI.RefreshFreecamUI then pcall(FUI.RefreshFreecamUI) end
+		if FUI.RefreshAimbotUI then pcall(FUI.RefreshAimbotUI) end
+		if FUI.RefreshRadialKeyUI then pcall(FUI.RefreshRadialKeyUI) end
+	end
+
+	for idx, spec in ipairs(keybindSpecs) do
+		local r = Instance.new("Frame", kbListHolder)
+		r.LayoutOrder = idx
+		r.Size = UDim2.new(1, 0, 0, 30)
+		r.BackgroundTransparency = 0.25
+		r.BorderSizePixel = 0
+		RegisterThemeObject(r, "BackgroundColor3", "PanelBg")
+		AddCorner(r, 6)
+		local l = MakeLabel(r, UDim2.new(1, -148, 1, 0), UDim2.new(0, 10, 0, 0), spec.Label, Enum.Font.GothamSemibold, 11, "TextPrimary", Enum.TextXAlignment.Left)
+		l.TextTruncate = Enum.TextTruncate.AtEnd
+		local bBtn = MakeButton(r, UDim2.new(0, 74, 0, 22), UDim2.new(1, -138, 0.5, -11), "[" .. tostring(Config[spec.Key] or "None") .. "]", "CardBg", 10)
+		kbRowButtons[spec.Slot] = bBtn
+		bBtn.MouseButton1Click:Connect(function()
+			bBtn.Text = "[Key/Del]"
+			ActiveKeybindCaptureCallback = function(k)
+				TryAssignUniqueKeybind(k, spec.Slot, function(val)
+					Config[spec.Key] = val
+					savedConfig.Settings[spec.Key] = val
+				end, SyncAllHubKeybindDisplays, bBtn)
+			end
+		end)
+		local dBtn = Instance.new("TextButton", r)
+		dBtn.Size = UDim2.new(0, 52, 0, 22)
+		dBtn.Position = UDim2.new(1, -58, 0.5, -11)
+		dBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+		dBtn.BorderSizePixel = 0
+		dBtn.Font = Enum.Font.GothamBold
+		dBtn.TextSize = 10
+		dBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		dBtn.Text = "Clear"
+		AddCorner(dBtn, 5)
+		FUI.AttachSpringAndRipple(dBtn)
+		dBtn.MouseButton1Click:Connect(function()
+			Config[spec.Key] = "None"
+			savedConfig.Settings[spec.Key] = "None"
+			ActiveKeybindCaptureCallback = nil
+			SyncAllHubKeybindDisplays()
+			SaveConfig(false)
+		end)
+	end
+
+	local fixedInfo = MakeLabel(kbListHolder, UDim2.new(1, 0, 0, 20), nil, "Fixed Shortcuts: [X] Toggle Hub  |  [F4] Hacker Detector  |  [Del] Unbind", Enum.Font.Gotham, 10, "TextSecondary", Enum.TextXAlignment.Center)
+	fixedInfo.LayoutOrder = 99
+
+	kbHeaderBtn.MouseButton1Click:Connect(function()
+		kbExpanded = not kbExpanded
+		kbHeaderBtn.Text = E.Bolt .. " Master Keybinds Overview [" .. (kbExpanded and "Collapse" or "Expand") .. "]"
+		kbListHolder.Visible = kbExpanded
+		FUI.SafeTween(KeybindCard, FUI.TI.TabPage, {
+			Size = kbExpanded and UDim2.new(1, 0, 0, 332) or UDim2.new(1, 0, 0, 44)
+		})
+		if kbExpanded then RefreshMasterKeybindPanel() end
+	end)
+
+	kbResetAllBtn.MouseButton1Click:Connect(function()
+		for _, spec in ipairs(keybindSpecs) do
+			Config[spec.Key] = spec.Default
+			savedConfig.Settings[spec.Key] = spec.Default
+		end
+		ActiveKeybindCaptureCallback = nil
+		SyncAllHubKeybindDisplays()
+		SaveConfig(false)
+		NotifyFeatureToggle("All Keybinds Reset to Defaults", true)
+	end)
+end
+
+CreateSectionHeader(Tab1_Dashboard, "Radial Quick-Action Wheel (Hold Key for Top 8 Favorites)", 22)
+do
+	local GuiService = game:GetService("GuiService")
+	CreateToggle(Tab1_Dashboard, "Radial Quick-Action Wheel (Hold Key Around Cursor)", Config.RadialWheelEnabled ~= false, 23, function(state)
+		Config.RadialWheelEnabled = state
+		savedConfig.Settings.RadialWheelEnabled = state
+		if not state and FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+		SaveConfig(false)
+	end)
+
+	local RadialKeyCard = CreateCard(Tab1_Dashboard, 44, 24)
+	local rkLbl = MakeLabel(RadialKeyCard, UDim2.new(0.46, -10, 1, 0), UDim2.new(0, 14, 0, 0), "Radial Wheel Hold Key:", Enum.Font.GothamSemibold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+	rkLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	local rkBindBtn = MakeButton(RadialKeyCard, UDim2.new(0.32, -8, 0, 28), UDim2.new(0.46, 2, 0.5, -14), "Hold: [" .. tostring(Config.RadialWheelKeybind or "V") .. "]", "PanelBg", 11)
+	local rkClearBtn = Instance.new("TextButton", RadialKeyCard)
+	rkClearBtn.Size = UDim2.new(0.22, -14, 0, 28)
+	rkClearBtn.Position = UDim2.new(0.78, 4, 0.5, -14)
+	rkClearBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+	rkClearBtn.BorderSizePixel = 0
+	rkClearBtn.Font = Enum.Font.GothamBold
+	rkClearBtn.TextSize = 11
+	rkClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	rkClearBtn.Text = E.Trash .. " Clear"
+	AddCorner(rkClearBtn, 6)
+	FUI.AttachSpringAndRipple(rkClearBtn)
+
+	local function RefreshRadialKeyUI()
+		local k = Config.RadialWheelKeybind or "None"
+		rkBindBtn.Text = "Hold: [" .. tostring(k) .. "]"
+	end
+	FUI.RefreshRadialKeyUI = RefreshRadialKeyUI
+
+	rkBindBtn.MouseButton1Click:Connect(function()
+		rkBindBtn.Text = "[Press Key]"
+		ActiveKeybindCaptureCallback = function(k)
+			TryAssignUniqueKeybind(k, "RadialWheel", function(val)
+				Config.RadialWheelKeybind = val
+				savedConfig.Settings.RadialWheelKeybind = val
+			end, function()
+				RefreshRadialKeyUI()
+				if FUI.RefreshMasterKeybindPanel then pcall(FUI.RefreshMasterKeybindPanel) end
+			end, rkBindBtn)
+		end
+	end)
+	rkClearBtn.MouseButton1Click:Connect(function()
+		Config.RadialWheelKeybind = "None"
+		savedConfig.Settings.RadialWheelKeybind = "None"
+		ActiveKeybindCaptureCallback = nil
+		RefreshRadialKeyUI()
+		if FUI.RefreshMasterKeybindPanel then pcall(FUI.RefreshMasterKeybindPanel) end
+		SaveConfig(false)
+	end)
+
+	local WheelRoot = Instance.new("Frame")
+	WheelRoot.Name = "TR_RadialWheel"
+	WheelRoot.AnchorPoint = Vector2.new(0.5, 0.5)
+	WheelRoot.Size = UDim2.new(0, 310, 0, 310)
+	WheelRoot.Position = UDim2.new(0.5, 0, 0.5, 0)
+	WheelRoot.BackgroundColor3 = GetTheme().MainBg
+	WheelRoot.BackgroundTransparency = 0.22
+	WheelRoot.BorderSizePixel = 0
+	WheelRoot.Visible = false
+	WheelRoot.ZIndex = 110
+	WheelRoot.Parent = ScreenGui
+	AddCorner(WheelRoot, 155)
+	local WheelScale = Instance.new("UIScale", WheelRoot)
+	WheelScale.Scale = 0.78
+	local WheelStroke = Instance.new("UIStroke", WheelRoot)
+	WheelStroke.Thickness = 2.0
+	WheelStroke.Transparency = 0.14
+	WheelStroke.Color = Color3.fromRGB(255, 255, 255)
+	local WheelStrokeGrad = Instance.new("UIGradient", WheelStroke)
+	WheelStrokeGrad.Rotation = 35
+
+	local CenterCore = Instance.new("TextButton", WheelRoot)
+	CenterCore.AnchorPoint = Vector2.new(0.5, 0.5)
+	CenterCore.Size = UDim2.new(0, 102, 0, 102)
+	CenterCore.Position = UDim2.new(0.5, 0, 0.5, 0)
+	CenterCore.BackgroundColor3 = GetTheme().CardBg
+	CenterCore.BackgroundTransparency = 0.06
+	CenterCore.BorderSizePixel = 0
+	CenterCore.Text = ""
+	CenterCore.AutoButtonColor = false
+	CenterCore.ZIndex = 114
+	CenterCore.MouseButton1Click:Connect(function()
+		if FUI.CloseRadialWheel then FUI.CloseRadialWheel(false) end
+	end)
+	AddCorner(CenterCore, 51)
+	local CenterStroke = Instance.new("UIStroke", CenterCore)
+	CenterStroke.Thickness = 1.6
+	CenterStroke.Color = GetTheme().Accent
+
+	local CenterTitle = Instance.new("TextLabel", CenterCore)
+	CenterTitle.Size = UDim2.new(1, -14, 0, 34)
+	CenterTitle.Position = UDim2.new(0, 7, 0, 22)
+	CenterTitle.BackgroundTransparency = 1
+	CenterTitle.Font = Enum.Font.GothamBold
+	CenterTitle.TextSize = 11
+	CenterTitle.TextWrapped = true
+	CenterTitle.TextTruncate = Enum.TextTruncate.AtEnd
+	CenterTitle.TextColor3 = GetTheme().TextPrimary
+	CenterTitle.Text = "Quick Wheel"
+	CenterTitle.ZIndex = 115
+
+	local CenterSub = Instance.new("TextLabel", CenterCore)
+	CenterSub.Size = UDim2.new(1, -14, 0, 18)
+	CenterSub.Position = UDim2.new(0, 7, 0, 62)
+	CenterSub.BackgroundTransparency = 1
+	CenterSub.Font = Enum.Font.GothamBlack
+	CenterSub.TextSize = 10
+	CenterSub.TextColor3 = GetTheme().Accent
+	CenterSub.Text = "TOP 8 FAVS"
+	CenterSub.ZIndex = 115
+
+	local wheelSlots = {}
+	local wheelItems = {}
+	local hoveredSlotIdx = nil
+	local radialOpen = false
+	local wheelCenterPos = Vector2.new(0, 0)
+	local radialMoveConn = nil
+	local SLOT_RADIUS = 108
+
+	for i = 1, 8 do
+		local angle = ((i - 1) * (math.pi / 4)) - (math.pi / 2)
+		local ox = math.floor(math.cos(angle) * SLOT_RADIUS + 0.5)
+		local oy = math.floor(math.sin(angle) * SLOT_RADIUS + 0.5)
+		local node = Instance.new("TextButton", WheelRoot)
+		node.AnchorPoint = Vector2.new(0.5, 0.5)
+		node.Size = UDim2.new(0, 88, 0, 40)
+		node.Position = UDim2.new(0.5, ox, 0.5, oy)
+		node.BackgroundColor3 = GetTheme().PanelBg
+		node.BackgroundTransparency = 0.08
+		node.BorderSizePixel = 0
+		node.Text = ""
+		node.AutoButtonColor = false
+		node.ZIndex = 112
+		AddCorner(node, 10)
+		local nScale = Instance.new("UIScale", node)
+		nScale.Scale = 1.0
+		local nStroke = Instance.new("UIStroke", node)
+		nStroke.Thickness = 1.3
+		nStroke.Color = GetTheme().Stroke
+		local dot = Instance.new("Frame", node)
+		dot.Size = UDim2.new(0, 8, 0, 8)
+		dot.Position = UDim2.new(0, 7, 0.5, -4)
+		dot.BackgroundColor3 = Color3.fromRGB(115, 125, 140)
+		dot.BorderSizePixel = 0
+		dot.ZIndex = 113
+		AddCorner(dot, 4)
+		local lbl = Instance.new("TextLabel", node)
+		lbl.Size = UDim2.new(1, -22, 1, -4)
+		lbl.Position = UDim2.new(0, 18, 0, 2)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextSize = 10
+		lbl.TextWrapped = true
+		lbl.TextTruncate = Enum.TextTruncate.AtEnd
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextColor3 = GetTheme().TextPrimary
+		lbl.Text = "Empty"
+		lbl.ZIndex = 113
+		wheelSlots[i] = { Node = node, Scale = nScale, Stroke = nStroke, Dot = dot, Label = lbl, Angle = angle }
+		node.MouseButton1Click:Connect(function()
+			local item = wheelItems[i]
+			if item and item.Reg and item.Reg.Toggle then
+				pcall(item.Reg.Toggle)
+				if FUI.CloseRadialWheel then FUI.CloseRadialWheel(false) end
+			end
+		end)
+	end
+
+	local function ApplyRadialTheme(th)
+		th = th or GetTheme()
+		local d = Config.GuiDesign or "Default"
+		WheelRoot.BackgroundColor3 = th.MainBg
+		WheelRoot.BackgroundTransparency = (d == "LiquidGlass" and 0.36) or (d == "CyberHud" and 0.12) or 0.18
+		WheelStrokeGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, th.Accent),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(1, th.Stroke)
+		})
+		CenterCore.BackgroundColor3 = th.CardBg
+		CenterStroke.Color = th.Accent
+		CenterTitle.TextColor3 = th.TextPrimary
+		CenterSub.TextColor3 = th.Accent
+		for i = 1, 8 do
+			local s = wheelSlots[i]
+			s.Label.TextColor3 = th.TextPrimary
+			if hoveredSlotIdx ~= i then
+				s.Node.BackgroundColor3 = th.PanelBg
+				s.Stroke.Color = th.Stroke
+			end
+		end
+	end
+	table.insert(ThemeObjects.CustomCallbacks, ApplyRadialTheme)
+
+	local function UpdateRadialHover(idx)
+		if hoveredSlotIdx == idx then return end
+		local th = GetTheme()
+		if hoveredSlotIdx and wheelSlots[hoveredSlotIdx] then
+			local prev = wheelSlots[hoveredSlotIdx]
+			prev.Node.BackgroundColor3 = th.PanelBg
+			prev.Stroke.Color = th.Stroke
+			prev.Stroke.Thickness = 1.3
+			FUI.SafeTween(prev.Scale, FUI.TI.HoverOut, { Scale = 1.0 })
+		end
+		hoveredSlotIdx = idx
+		if idx and wheelSlots[idx] and wheelItems[idx] then
+			local cur = wheelSlots[idx]
+			local item = wheelItems[idx]
+			cur.Node.BackgroundColor3 = th.Accent
+			cur.Stroke.Color = Color3.fromRGB(255, 255, 255)
+			cur.Stroke.Thickness = 2.0
+			FUI.SafeTween(cur.Scale, FUI.TI.HoverIn, { Scale = 1.10 })
+			local isOn = item.Reg.GetState and (item.Reg.GetState() == true)
+			CenterTitle.Text = item.ShortName
+			CenterSub.Text = isOn and "CURRENT: ON" or "CURRENT: OFF"
+			CenterSub.TextColor3 = isOn and Color3.fromRGB(60, 230, 140) or Color3.fromRGB(245, 95, 105)
+		else
+			CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Favorites"
+			CenterSub.Text = (#wheelItems > 0) and "RELEASE KEY" or "PIN ★ IN TABS"
+			CenterSub.TextColor3 = th.Accent
+		end
+	end
+
+	local function PopulateRadialSlots()
+		table.clear(wheelItems)
+		local th = GetTheme()
+		local idx = 0
+		for _, funcName in ipairs(FUI.FavoriteOrder) do
+			if FUI.IsFunctionFavorited(funcName) then
+				local reg = FUI.FavoriteRegistry[funcName]
+				if reg then
+					idx = idx + 1
+					local shortName = tostring(reg.Name or funcName):gsub("%s*%b()$", "")
+					if shortName == "" then shortName = tostring(reg.Name or funcName) end
+					wheelItems[idx] = { Name = funcName, ShortName = shortName, Reg = reg }
+					if idx >= 8 then break end
+				end
+			end
+		end
+		for i = 1, 8 do
+			local s = wheelSlots[i]
+			local item = wheelItems[i]
+			s.Node.BackgroundColor3 = th.PanelBg
+			s.Stroke.Color = th.Stroke
+			s.Stroke.Thickness = 1.3
+			s.Scale.Scale = 1.0
+			if item then
+				local isOn = item.Reg.GetState and (item.Reg.GetState() == true)
+				s.Node.BackgroundTransparency = 0.08
+				s.Label.Text = item.ShortName
+				s.Label.TextTransparency = 0
+				s.Dot.BackgroundColor3 = isOn and Color3.fromRGB(52, 226, 132) or Color3.fromRGB(140, 148, 165)
+			else
+				s.Node.BackgroundTransparency = 0.55
+				s.Label.Text = "Slot " .. tostring(i)
+				s.Label.TextTransparency = 0.55
+				s.Dot.BackgroundColor3 = Color3.fromRGB(85, 92, 108)
+			end
+		end
+		hoveredSlotIdx = nil
+		CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Favorites"
+		CenterSub.Text = (#wheelItems > 0) and "MOVE & RELEASE" or "PIN ★ IN TABS"
+		CenterSub.TextColor3 = th.Accent
+	end
+
+	FUI.OpenRadialWheel = function()
+		if radialOpen or isClosingPermanently or Config.RadialWheelEnabled == false then return end
+		radialOpen = true
+		ApplyRadialTheme(GetTheme())
+		PopulateRadialSlots()
+		local mLoc = UserInputService:GetMouseLocation()
+		local inset = GuiService:GetGuiInset()
+		local cam = workspace.CurrentCamera
+		local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+		local cx = math.clamp(mLoc.X, 165, math.max(165, vs.X - 165))
+		local cy = math.clamp(mLoc.Y - inset.Y, 165, math.max(165, vs.Y - 165))
+		wheelCenterPos = Vector2.new(cx, cy + inset.Y)
+		WheelRoot.Position = UDim2.new(0, cx, 0, cy)
+		WheelScale.Scale = 0.74
+		WheelRoot.Visible = true
+		FUI.SafeTween(WheelScale, FUI.TI.NotifIn, { Scale = 1.0 })
+		if radialMoveConn then pcall(function() radialMoveConn:Disconnect() end) end
+		radialMoveConn = UserInputService.InputChanged:Connect(function(inp)
+			if not radialOpen then return end
+			if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+			local pos = UserInputService:GetMouseLocation()
+			local dx = pos.X - wheelCenterPos.X
+			local dy = pos.Y - wheelCenterPos.Y
+			local dist = math.sqrt(dx * dx + dy * dy)
+			if dist < 42 then
+				UpdateRadialHover(nil)
+				return
+			end
+			local ang = math.atan2(dy, dx) + (math.pi / 2)
+			if ang < 0 then ang = ang + (math.pi * 2) end
+			local sector = (math.floor(((ang + (math.pi / 8)) % (math.pi * 2)) / (math.pi / 4)) % 8) + 1
+			if wheelItems[sector] then
+				UpdateRadialHover(sector)
+			else
+				UpdateRadialHover(nil)
+			end
+		end)
+		FUI._RadialMoveConn = radialMoveConn
+	end
+
+	FUI.CloseRadialWheel = function(triggerHovered)
+		if not radialOpen then return end
+		radialOpen = false
+		if radialMoveConn then
+			pcall(function() radialMoveConn:Disconnect() end)
+			radialMoveConn = nil
+			FUI._RadialMoveConn = nil
+		end
+		local chosen = (triggerHovered == true and hoveredSlotIdx) and wheelItems[hoveredSlotIdx] or nil
+		hoveredSlotIdx = nil
+		WheelRoot.Visible = false
+		if chosen and chosen.Reg and chosen.Reg.Toggle then
+			pcall(chosen.Reg.Toggle)
+		end
+	end
+	ApplyRadialTheme(GetTheme())
+end
+
+CreateSectionHeader(Tab1_Dashboard, "Smart Anti-AFK, Session Uptime & Window-Focus Power Saver", 25)
+do
+	local UptimeCard = CreateCard(Tab1_Dashboard, 44, 26)
+	local uptimeLbl = MakeLabel(UptimeCard, UDim2.new(1, -24, 1, 0), UDim2.new(0, 12, 0, 0), "Uptime: 00:00:00  |  AFK Saves: 0  |  Focus: ACTIVE", Enum.Font.GothamBold, 11, "Accent", Enum.TextXAlignment.Center)
+	uptimeLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local PowerBanner = Instance.new("TextButton")
+	PowerBanner.Name = "TR_PowerSaverBanner"
+	PowerBanner.AnchorPoint = Vector2.new(0.5, 0)
+	PowerBanner.Size = UDim2.new(0, 330, 0, 34)
+	PowerBanner.Position = UDim2.new(0.5, 0, 0, 18)
+	PowerBanner.BackgroundColor3 = GetTheme().MainBg
+	PowerBanner.BackgroundTransparency = 0.10
+	PowerBanner.BorderSizePixel = 0
+	PowerBanner.Text = ""
+	PowerBanner.AutoButtonColor = false
+	PowerBanner.Visible = false
+	PowerBanner.ZIndex = 120
+	PowerBanner.Parent = ScreenGui
+	AddCorner(PowerBanner, 17)
+	local pbStroke = Instance.new("UIStroke", PowerBanner)
+	pbStroke.Thickness = 1.6
+	pbStroke.Color = GetTheme().Accent
+	local pbLbl = MakeLabel(PowerBanner, UDim2.new(1, -16, 1, 0), UDim2.new(0, 8, 0, 0), E.Bolt .. " Power Saver Active (3D Paused) — Click to Resume", Enum.Font.GothamBold, 11, "TextPrimary", Enum.TextXAlignment.Center)
+	pbLbl.ZIndex = 121
+	table.insert(ThemeObjects.CustomCallbacks, function(th)
+		PowerBanner.BackgroundColor3 = th.MainBg
+		pbStroke.Color = th.Accent
+	end)
+
+	local function FormatUptime(sec)
+		local s = math.max(0, math.floor(sec))
+		local h = math.floor(s / 3600)
+		local m = math.floor((s % 3600) / 60)
+		local r = s % 60
+		return string.format("%02d:%02d:%02d", h, m, r)
+	end
+
+	FUI.UpdateSessionUptimeLabel = function()
+		if not uptimeLbl or not uptimeLbl.Parent then return end
+		local elapsed = os.clock() - (FUI.SessionStartClock or os.clock())
+		local focusTxt = FUI.IsWindowUnfocused and "POWER SAVER" or "ACTIVE"
+		uptimeLbl.Text = string.format("Uptime: %s  |  AFK Saves: %d  |  Focus: %s", FormatUptime(elapsed), FUI.AntiAfkSaves or 0, focusTxt)
+	end
+
+	FUI.SetWindowPowerSaverState = function(unfocused)
+		if isClosingPermanently then return end
+		if unfocused and Config.FocusPowerSaverEnabled ~= false then
+			FUI.IsWindowUnfocused = true
+			PowerBanner.Visible = true
+			pcall(function() RunService:Set3dRenderingEnabled(false) end)
+		else
+			FUI.IsWindowUnfocused = false
+			PowerBanner.Visible = false
+			pcall(function() RunService:Set3dRenderingEnabled(true) end)
+		end
+		FUI.UpdateSessionUptimeLabel()
+	end
+
+	CreateToggle(Tab1_Dashboard, "Window-Focus Power Saver (Pause 3D & UI Load When Alt-Tabbed)", Config.FocusPowerSaverEnabled ~= false, 27, function(state)
+		Config.FocusPowerSaverEnabled = state
+		savedConfig.Settings.FocusPowerSaverEnabled = state
+		if not state then FUI.SetWindowPowerSaverState(false) end
+		SaveConfig(false)
+	end)
+
+	PowerBanner.MouseButton1Click:Connect(function()
+		FUI.SetWindowPowerSaverState(false)
+	end)
+	table.insert(Connections, UserInputService.WindowFocusReleased:Connect(function()
+		if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+		if Config.FocusPowerSaverEnabled ~= false and not isClosingPermanently then
+			FUI.SetWindowPowerSaverState(true)
+		end
+	end))
+	table.insert(Connections, UserInputService.WindowFocused:Connect(function()
+		FUI.SetWindowPowerSaverState(false)
+	end))
+end
+end if FUI.SetLoadProgress then FUI.SetLoadProgress(20, "Loading Themes & Status...") end SetupTab1()
 local teleportBypassLockUntil, teleportBypassTargetCF = 0, nil
 local function SetupTab2() CreateSectionHeader(Tab2_Waypoints, "Coordinates & Direct Teleport", 1)
 local CoordsTopCard = CreateCard(Tab2_Waypoints, 88, 2)
@@ -4006,44 +5370,323 @@ local function ParseCoordinateString(str) if type(str) ~= "string" then return n
 			if CopyCoordsBtn and CopyCoordsBtn.Parent then CopyCoordsBtn.Text = E.Clip .. " Copy Coords" end end)
 	end end) DirectTpBtn.MouseButton1Click:Connect(function()
 	local x, y, z = ParseCoordinateString(CoordsInput.Text)
-	if x and y and z then SafeTeleportToCoords(x, y, z) end end)
-CreateSectionHeader(Tab2_Waypoints, "Saved Waypoints (Press Delete Key to Unassign Keybind)", 3)
-local WaypointsContainer = Instance.new("Frame") WaypointsContainer.LayoutOrder = 4
+	if x and y and z and x == x and y == y and z == z and math.abs(x) < 1e7 and math.abs(y) < 1e7 and math.abs(z) < 1e7 then
+		SafeTeleportToCoords(x, y, z)
+	else
+		DirectTpBtn.Text = E.Close .. " Invalid"
+		task.delay(1.0, function() if DirectTpBtn and DirectTpBtn.Parent then DirectTpBtn.Text = E.Bolt .. " Teleport" end end)
+	end end)
+CreateSectionHeader(Tab2_Waypoints, "Per-Game Folders (PlaceId: " .. tostring(game.PlaceId) .. ") & JSON Import / Export", 3)
+local wpScope = (Config.WaypointScope == "AllGames") and "AllGames" or "ThisGame"
+local WpToolsCard = CreateCard(Tab2_Waypoints, 48, 4)
+WpToolsCard.ClipsDescendants = true
+local wpThisGameBtn = MakeButton(WpToolsCard, UDim2.new(0.27, -6, 0, 30), UDim2.new(0, 10, 0, 9), "This Game", nil, 11)
+local wpAllGamesBtn = MakeButton(WpToolsCard, UDim2.new(0.25, -6, 0, 30), UDim2.new(0.27, 6, 0, 9), "All Games", nil, 11)
+local wpExportBtn = MakeButton(WpToolsCard, UDim2.new(0.24, -6, 0, 30), UDim2.new(0.52, 4, 0, 9), E.Clip .. " Export JSON", "AccentDark", 11)
+local wpImportToggleBtn = MakeButton(WpToolsCard, UDim2.new(0.24, -10, 0, 30), UDim2.new(0.76, 2, 0, 9), E.Plus .. " Import JSON", "PanelBg", 11)
+
+local wpImportOpen = false
+local wpImportBox = Instance.new("TextBox", WpToolsCard)
+wpImportBox.Size = UDim2.new(1, -118, 0, 30)
+wpImportBox.Position = UDim2.new(0, 10, 0, 48)
+wpImportBox.PlaceholderText = "Paste waypoint JSON here to import into this game..."
+wpImportBox.Text = ""
+wpImportBox.ClearTextOnFocus = false
+wpImportBox.Font = Enum.Font.Code
+wpImportBox.TextSize = 11
+wpImportBox.TextXAlignment = Enum.TextXAlignment.Left
+wpImportBox.Visible = false
+RegisterThemeObject(wpImportBox, "BackgroundColor3", "PanelBg")
+RegisterThemeObject(wpImportBox, "TextColor3", "TextPrimary")
+RegisterThemeObject(wpImportBox, "PlaceholderColor3", "TextSecondary")
+AddCorner(wpImportBox, 6)
+local wpImportApplyBtn = MakeButton(WpToolsCard, UDim2.new(0, 98, 0, 30), UDim2.new(1, -106, 0, 48), E.Check .. " Import", "Accent", 11)
+wpImportApplyBtn.Visible = false
+
+local beaconFolder = nil
+local activeBeacons = {}
+local function ClearWaypointBeacons()
+	table.clear(activeBeacons)
+	if beaconFolder and beaconFolder.Parent then pcall(function() beaconFolder:Destroy() end) end
+	beaconFolder = nil
+	local stray = workspace:FindFirstChild("TR_WaypointBeacons")
+	if stray then pcall(function() stray:Destroy() end) end
+end
+local function RebuildWaypointBeacons()
+	ClearWaypointBeacons()
+	if not Config.WaypointBeaconsEnabled or isClosingPermanently then return end
+	local th = GetTheme()
+	beaconFolder = Instance.new("Folder")
+	beaconFolder.Name = "TR_WaypointBeacons"
+	beaconFolder.Parent = workspace
+	local curPid = game.PlaceId
+	for _, wp in ipairs(savedConfig.Waypoints) do
+		local wpPid = tonumber(wp.PlaceId) or 0
+		if wpPid == 0 or wpPid == curPid then
+			local pos = Vector3.new(tonumber(wp.X) or 0, tonumber(wp.Y) or 0, tonumber(wp.Z) or 0)
+			local beam = Instance.new("Part")
+			beam.Name = "TR_WPBeam"
+			beam.Anchored = true
+			beam.CanCollide = false
+			beam.CanQuery = false
+			beam.CanTouch = false
+			beam.CastShadow = false
+			beam.Material = Enum.Material.Neon
+			beam.Color = th.Accent
+			beam.Transparency = 0.62
+			beam.Size = Vector3.new(0.45, 90, 0.45)
+			beam.CFrame = CFrame.new(pos + Vector3.new(0, 45, 0))
+			beam.Parent = beaconFolder
+
+			local baseRing = Instance.new("Part")
+			baseRing.Name = "TR_WPRing"
+			baseRing.Shape = Enum.PartType.Cylinder
+			baseRing.Anchored = true
+			baseRing.CanCollide = false
+			baseRing.CanQuery = false
+			baseRing.CanTouch = false
+			baseRing.CastShadow = false
+			baseRing.Material = Enum.Material.Neon
+			baseRing.Color = th.Stroke
+			baseRing.Transparency = 0.35
+			baseRing.Size = Vector3.new(0.25, 4.2, 4.2)
+			baseRing.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
+			baseRing.Parent = beaconFolder
+
+			local bb = Instance.new("BillboardGui")
+			bb.Name = "TR_WPLabel"
+			bb.Adornee = baseRing
+			bb.AlwaysOnTop = true
+			bb.Size = UDim2.new(0, 148, 0, 36)
+			bb.StudsOffset = Vector3.new(0, 4.2, 0)
+			bb.MaxDistance = 4000
+			bb.Parent = beaconFolder
+
+			local bg = Instance.new("Frame", bb)
+			bg.Size = UDim2.new(1, 0, 1, 0)
+			bg.BackgroundColor3 = th.MainBg
+			bg.BackgroundTransparency = 0.14
+			bg.BorderSizePixel = 0
+			AddCorner(bg, 8)
+			local st = Instance.new("UIStroke", bg)
+			st.Thickness = 1.4
+			st.Color = th.Accent
+
+			local nLbl = Instance.new("TextLabel", bg)
+			nLbl.Size = UDim2.new(1, -10, 0, 18)
+			nLbl.Position = UDim2.new(0, 5, 0, 2)
+			nLbl.BackgroundTransparency = 1
+			nLbl.Font = Enum.Font.GothamBold
+			nLbl.TextSize = 11
+			nLbl.TextColor3 = th.TextPrimary
+			nLbl.TextTruncate = Enum.TextTruncate.AtEnd
+			nLbl.Text = E.Pin .. " " .. tostring(wp.Name or "Waypoint")
+
+			local dLbl = Instance.new("TextLabel", bg)
+			dLbl.Size = UDim2.new(1, -10, 0, 14)
+			dLbl.Position = UDim2.new(0, 5, 0, 20)
+			dLbl.BackgroundTransparency = 1
+			dLbl.Font = Enum.Font.GothamSemibold
+			dLbl.TextSize = 10
+			dLbl.TextColor3 = th.Accent
+			dLbl.Text = "-- studs"
+
+			table.insert(activeBeacons, { Pos = pos, Beam = beam, Ring = baseRing, Bg = bg, Stroke = st, NameLbl = nLbl, DistLbl = dLbl })
+		end
+	end
+end
+FUI.ClearWaypointBeacons = ClearWaypointBeacons
+FUI.RebuildWaypointBeacons = RebuildWaypointBeacons
+table.insert(ThemeObjects.CustomCallbacks, function(activeTh)
+	for _, b in ipairs(activeBeacons) do
+		if b.Beam and b.Beam.Parent then b.Beam.Color = activeTh.Accent end
+		if b.Ring and b.Ring.Parent then b.Ring.Color = activeTh.Stroke end
+		if b.Bg and b.Bg.Parent then b.Bg.BackgroundColor3 = activeTh.MainBg end
+		if b.Stroke and b.Stroke.Parent then b.Stroke.Color = activeTh.Accent end
+		if b.NameLbl and b.NameLbl.Parent then b.NameLbl.TextColor3 = activeTh.TextPrimary end
+		if b.DistLbl and b.DistLbl.Parent then b.DistLbl.TextColor3 = activeTh.Accent end
+	end
+end)
+local lastBeaconDistTick = 0
+table.insert(Connections, RunService.Heartbeat:Connect(function()
+	if not Config.WaypointBeaconsEnabled or isClosingPermanently or FUI.IsWindowUnfocused or #activeBeacons == 0 then return end
+	local nowT = os.clock()
+	if nowT - lastBeaconDistTick < 0.25 then return end
+	lastBeaconDistTick = nowT
+	local root = GetRootPart()
+	local myPos = root and root.Position or (workspace.CurrentCamera and workspace.CurrentCamera.CFrame.Position)
+	if not myPos then return end
+	for i = 1, #activeBeacons do
+		local b = activeBeacons[i]
+		if b.DistLbl and b.DistLbl.Parent then
+			b.DistLbl.Text = string.format("%.0f studs", (b.Pos - myPos).Magnitude)
+		end
+	end
+end))
+CreateToggle(Tab2_Waypoints, "3D Waypoint Beacons & Live Distance Labels (In-World Beams)", Config.WaypointBeaconsEnabled == true, 5, function(state)
+	Config.WaypointBeaconsEnabled = state
+	savedConfig.Settings.WaypointBeaconsEnabled = state
+	RebuildWaypointBeacons()
+	SaveConfig(false)
+end)
+if Config.WaypointBeaconsEnabled == true then task.defer(RebuildWaypointBeacons) end
+local WaypointsContainer = Instance.new("Frame") WaypointsContainer.LayoutOrder = 6
 WaypointsContainer.Size = UDim2.new(1, 0, 0, 0) WaypointsContainer.AutomaticSize = Enum.AutomaticSize.Y
 WaypointsContainer.BackgroundTransparency = 1 WaypointsContainer.Parent = Tab2_Waypoints
 local WaypointsLayout = Instance.new("UIListLayout") WaypointsLayout.Padding = UDim.new(0, 6)
 WaypointsLayout.SortOrder = Enum.SortOrder.LayoutOrder WaypointsLayout.Parent = WaypointsContainer
-ActiveKeybindCaptureCallback = nil local function RebuildWaypointsUI()
+
+local function RefreshWpScopeBtns()
+	local th = GetTheme()
+	local curPid = game.PlaceId
+	local thisCount, allCount = 0, #savedConfig.Waypoints
+	for _, wp in ipairs(savedConfig.Waypoints) do
+		if wp.PlaceId == nil or wp.PlaceId == 0 or wp.PlaceId == curPid then thisCount = thisCount + 1 end
+	end
+	wpThisGameBtn.Text = string.format("This Game (%d)", thisCount)
+	wpAllGamesBtn.Text = string.format("All Games (%d)", allCount)
+	FUI.TweenButtonState(wpThisGameBtn, (wpScope == "ThisGame") and th.Accent or th.PanelBg, nil, wpScope == "ThisGame")
+	FUI.TweenButtonState(wpAllGamesBtn, (wpScope == "AllGames") and th.Accent or th.PanelBg, nil, wpScope == "AllGames")
+end
+table.insert(ThemeObjects.CustomCallbacks, RefreshWpScopeBtns)
+
+ActiveKeybindCaptureCallback = nil
+local function RebuildWaypointsUI()
 	for _, child in ipairs(WaypointsContainer:GetChildren()) do
-		if child:IsA("Frame") then child:Destroy() end end for idx, wp in ipairs(savedConfig.Waypoints) do
-		local Row = CreateCard(WaypointsContainer, 44, idx) local NameBox = Instance.new("TextBox")
-		NameBox.Size = UDim2.new(0, 175, 0, 28) NameBox.Position = UDim2.new(0, 10, 0.5, -14)
-		NameBox.Text = wp.Name or ("Waypoint " .. idx) NameBox.ClearTextOnFocus = false
-		NameBox.Font = Enum.Font.GothamSemibold NameBox.TextSize = 12 NameBox.Parent = Row
-		RegisterThemeObject(NameBox, "BackgroundColor3", "PanelBg")
-		RegisterThemeObject(NameBox, "TextColor3", "TextPrimary") AddCorner(NameBox, 6)
-		NameBox.FocusLost:Connect(function() wp.Name = NameBox.Text SaveConfig(false) end)
-		local CoordsLbl = MakeLabel(Row, UDim2.new(0, 135, 1, 0), UDim2.new(0, 192, 0, 0), string.format("%.0f, %.0f, %.0f", wp.X or 0, wp.Y or 0, wp.Z or 0), Enum.Font.Gotham, 11, "TextSecondary", Enum.TextXAlignment.Left)
-		local KeyBtn = MakeButton(Row, UDim2.new(0, 78, 0, 28), UDim2.new(1, -206, 0.5, -14), "[" .. (wp.Keybind or "None") .. "]", "PanelBg", 11)
-		KeyBtn.MouseButton1Click:Connect(function() KeyBtn.Text = "[Key/Del]"
-			ActiveKeybindCaptureCallback = function(keyName)
-				TryAssignUniqueKeybind(keyName, "Waypoint:" .. tostring(idx), function(val) wp.Keybind = val end, function()
-					KeyBtn.Text = "[" .. (wp.Keybind or "None") .. "]"
-				end, KeyBtn) end end)
-		KeyBtn.MouseButton2Click:Connect(function() wp.Keybind = "None" KeyBtn.Text = "[None]"
-			ActiveKeybindCaptureCallback = nil SaveConfig(false) end)
-		local TpBtn = MakeButton(Row, UDim2.new(0, 74, 0, 28), UDim2.new(1, -122, 0.5, -14), "Teleport", "Accent", 11)
-		TpBtn.MouseButton1Click:Connect(function() SafeTeleportToCoords(wp.X, wp.Y, wp.Z) end)
-		local DelBtn = Instance.new("TextButton") DelBtn.Size = UDim2.new(0, 34, 0, 28)
-		DelBtn.Position = UDim2.new(1, -42, 0.5, -14) DelBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
-		DelBtn.Font = Enum.Font.GothamBold DelBtn.TextSize = 13
-		DelBtn.TextColor3 = Color3.fromRGB(255, 255, 255) DelBtn.Text = E.Trash DelBtn.Parent = Row
-		AddCorner(DelBtn, 6) FUI.AttachSpringAndRipple(DelBtn) DelBtn.MouseButton1Click:Connect(function()
-			table.remove(savedConfig.Waypoints, idx) SaveConfig(false) RebuildWaypointsUI() end) end end
+		if child:IsA("Frame") or child:IsA("TextLabel") then child:Destroy() end
+	end
+	RefreshWpScopeBtns()
+	local curPid = game.PlaceId
+	local shown = 0
+	for idx, wp in ipairs(savedConfig.Waypoints) do
+		local wpPid = tonumber(wp.PlaceId) or 0
+		local matchesScope = (wpScope == "AllGames") or (wpPid == 0) or (wpPid == curPid)
+		if matchesScope then
+			shown = shown + 1
+			local Row = CreateCard(WaypointsContainer, 44, shown)
+			local NameBox = Instance.new("TextBox")
+			NameBox.Size = UDim2.new(0, 165, 0, 28) NameBox.Position = UDim2.new(0, 10, 0.5, -14)
+			NameBox.Text = wp.Name or ("Waypoint " .. idx) NameBox.ClearTextOnFocus = false
+			NameBox.Font = Enum.Font.GothamSemibold NameBox.TextSize = 12 NameBox.Parent = Row
+			RegisterThemeObject(NameBox, "BackgroundColor3", "PanelBg")
+			RegisterThemeObject(NameBox, "TextColor3", "TextPrimary") AddCorner(NameBox, 6)
+			NameBox.FocusLost:Connect(function() wp.Name = NameBox.Text SaveConfig(false) if Config.WaypointBeaconsEnabled then RebuildWaypointBeacons() end end)
+			local pidTag = (wpScope == "AllGames" and wpPid > 0) and (" [#" .. tostring(wpPid) .. "]") or ""
+			local CoordsLbl = MakeLabel(Row, UDim2.new(0, 145, 1, 0), UDim2.new(0, 182, 0, 0), string.format("%.0f, %.0f, %.0f%s", wp.X or 0, wp.Y or 0, wp.Z or 0, pidTag), Enum.Font.Gotham, 11, "TextSecondary", Enum.TextXAlignment.Left)
+			CoordsLbl.TextTruncate = Enum.TextTruncate.AtEnd
+			local KeyBtn = MakeButton(Row, UDim2.new(0, 78, 0, 28), UDim2.new(1, -206, 0.5, -14), "[" .. (wp.Keybind or "None") .. "]", "PanelBg", 11)
+			KeyBtn.MouseButton1Click:Connect(function() KeyBtn.Text = "[Key/Del]"
+				ActiveKeybindCaptureCallback = function(keyName)
+					TryAssignUniqueKeybind(keyName, "Waypoint:" .. tostring(idx), function(val) wp.Keybind = val end, function()
+						KeyBtn.Text = "[" .. (wp.Keybind or "None") .. "]"
+					end, KeyBtn) end end)
+			KeyBtn.MouseButton2Click:Connect(function() wp.Keybind = "None" KeyBtn.Text = "[None]"
+				ActiveKeybindCaptureCallback = nil SaveConfig(false) end)
+			local TpBtn = MakeButton(Row, UDim2.new(0, 74, 0, 28), UDim2.new(1, -122, 0.5, -14), "Teleport", "Accent", 11)
+			TpBtn.MouseButton1Click:Connect(function() SafeTeleportToCoords(wp.X, wp.Y, wp.Z) end)
+			local DelBtn = Instance.new("TextButton") DelBtn.Size = UDim2.new(0, 34, 0, 28)
+			DelBtn.Position = UDim2.new(1, -42, 0.5, -14) DelBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+			DelBtn.Font = Enum.Font.GothamBold DelBtn.TextSize = 13
+			DelBtn.TextColor3 = Color3.fromRGB(255, 255, 255) DelBtn.Text = E.Trash DelBtn.Parent = Row
+			AddCorner(DelBtn, 6) FUI.AttachSpringAndRipple(DelBtn) DelBtn.MouseButton1Click:Connect(function()
+				table.remove(savedConfig.Waypoints, idx) SaveConfig(false) RebuildWaypointsUI() end)
+		end
+	end
+	if shown == 0 then
+		MakeLabel(WaypointsContainer, UDim2.new(1, 0, 0, 30), nil, "No waypoints saved for this game yet. Click 'Save Pos' or import JSON above.", Enum.Font.GothamSemibold, 11, "TextSecondary", Enum.TextXAlignment.Center)
+	end
+	if Config.WaypointBeaconsEnabled then RebuildWaypointBeacons() end
+end
+
+wpThisGameBtn.MouseButton1Click:Connect(function()
+	wpScope = "ThisGame"
+	Config.WaypointScope = wpScope
+	savedConfig.Settings.WaypointScope = wpScope
+	SaveConfig(false)
+	RebuildWaypointsUI()
+end)
+wpAllGamesBtn.MouseButton1Click:Connect(function()
+	wpScope = "AllGames"
+	Config.WaypointScope = wpScope
+	savedConfig.Settings.WaypointScope = wpScope
+	SaveConfig(false)
+	RebuildWaypointsUI()
+end)
+wpExportBtn.MouseButton1Click:Connect(function()
+	local exportList = {}
+	local curPid = game.PlaceId
+	for _, wp in ipairs(savedConfig.Waypoints) do
+		local wpPid = tonumber(wp.PlaceId) or 0
+		if wpScope == "AllGames" or wpPid == 0 or wpPid == curPid then
+			table.insert(exportList, {
+				Name = wp.Name or "Waypoint",
+				X = wp.X or 0, Y = wp.Y or 0, Z = wp.Z or 0,
+				Keybind = wp.Keybind or "None",
+				PlaceId = (wpPid > 0) and wpPid or curPid
+			})
+		end
+	end
+	local ok, encoded = pcall(function() return HttpService:JSONEncode(exportList) end)
+	if ok and encoded then
+		SafeClipboard(encoded)
+		wpExportBtn.Text = E.Check .. " Copied!"
+		task.delay(1.1, function()
+			if wpExportBtn and wpExportBtn.Parent then wpExportBtn.Text = E.Clip .. " Export JSON" end
+		end)
+	end
+end)
+wpImportToggleBtn.MouseButton1Click:Connect(function()
+	wpImportOpen = not wpImportOpen
+	wpImportBox.Visible = wpImportOpen
+	wpImportApplyBtn.Visible = wpImportOpen
+	FUI.SafeTween(WpToolsCard, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Size = wpImportOpen and UDim2.new(1, 0, 0, 88) or UDim2.new(1, 0, 0, 48)
+	})
+end)
+wpImportApplyBtn.MouseButton1Click:Connect(function()
+	local raw = tostring(wpImportBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+	if raw == "" then return end
+	local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+	if not ok or type(decoded) ~= "table" then
+		wpImportApplyBtn.Text = E.Close .. " Invalid"
+		task.delay(1.1, function()
+			if wpImportApplyBtn and wpImportApplyBtn.Parent then wpImportApplyBtn.Text = E.Check .. " Import" end
+		end)
+		return
+	end
+	local items = (decoded.X ~= nil and decoded.Y ~= nil and decoded.Z ~= nil) and { decoded } or decoded
+	local added = 0
+	for _, item in ipairs(items) do
+		if type(item) == "table" and tonumber(item.X) and tonumber(item.Y) and tonumber(item.Z) then
+			table.insert(savedConfig.Waypoints, {
+				Name = tostring(item.Name or ("Imported " .. tostring(#savedConfig.Waypoints + 1))),
+				X = math.floor(tonumber(item.X) + 0.5),
+				Y = math.floor(tonumber(item.Y) + 0.5),
+				Z = math.floor(tonumber(item.Z) + 0.5),
+				Keybind = "None",
+				PlaceId = tonumber(item.PlaceId) or game.PlaceId
+			})
+			added = added + 1
+		end
+	end
+	if added > 0 then
+		wpImportBox.Text = ""
+		SaveConfig(false)
+		RebuildWaypointsUI()
+		wpImportApplyBtn.Text = E.Check .. " +" .. tostring(added)
+		NotifyFeatureToggle("Imported " .. tostring(added) .. " Waypoint(s)", true)
+	else
+		wpImportApplyBtn.Text = E.Close .. " None"
+	end
+	task.delay(1.1, function()
+		if wpImportApplyBtn and wpImportApplyBtn.Parent then wpImportApplyBtn.Text = E.Check .. " Import" end
+	end)
+end)
+
 AddWaypointBtn.MouseButton1Click:Connect(function() local root = GetRootPart() if root then
 		local pos = root.Position table.insert(savedConfig.Waypoints, {
 			Name = "Waypoint " .. (#savedConfig.Waypoints + 1), X = math.floor(pos.X + 0.5),
-			Y = math.floor(pos.Y + 0.5), Z = math.floor(pos.Z + 0.5), Keybind = "None" }) SaveConfig(false)
+			Y = math.floor(pos.Y + 0.5), Z = math.floor(pos.Z + 0.5), Keybind = "None", PlaceId = game.PlaceId }) SaveConfig(false)
 		RebuildWaypointsUI() end end) RebuildWaypointsUI() end if FUI.SetLoadProgress then FUI.SetLoadProgress(28, "Loading Waypoints & Teleport...") end SetupTab2()
 local SpectatingTarget, SetSpectateTarget, RefreshSpectateVisualsInDetector, IsFriend, RefreshRadarCards, GetPlayerDetectionState
 local StickTarget, StickMode, SetStickTarget, IsStickingToPlayer
@@ -4811,6 +6454,7 @@ local toggleFreecamState, GetFreecamAnchorCF
 local function SetupTab5()
 CreateSectionHeader(Tab5_Flight, "Flight Engine & Keybind Controls", 1)
 local FlightEngineCard = CreateCard(Tab5_Flight, 94, 2)
+FUI.CreateFavoriteStarButton(FlightEngineCard, "Flight Active [E] (3D Camera-Aligned Fly)", UDim2.new(1, -30, 0, 13), UDim2.new(0, 24, 0, 24))
 local masterFlightToggleBtn = Instance.new("TextButton")
 masterFlightToggleBtn.Size = UDim2.new(0.5, -14, 0, 34)
 masterFlightToggleBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -4837,6 +6481,10 @@ local function UpdateFlightUI()
 	local fk = savedConfig.Settings.FlyKeybind or "E"
 	FUI.TweenButtonState(keyFlyToggleBtn, keyFlying and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(231, 76, 60), nil, keyFlying)
 	keyFlyToggleBtn.Text = keyFlying and ("Keybind [" .. fk .. "] Flight: ON") or ("Keybind [" .. fk .. "] Flight: OFF")
+end
+FUI.RefreshFlightUI = function()
+	if flyKeyAssignBtn and flyKeyAssignBtn.Parent then flyKeyAssignBtn.Text = "Bind Key: [" .. (savedConfig.Settings.FlyKeybind or "None") .. "]" end
+	UpdateFlightUI()
 end
 UpdateFlightUI()
 
@@ -5106,6 +6754,7 @@ ResetSpeedBtn.MouseButton1Click:Connect(function()
 end)
 CreateSectionHeader(Tab5_Flight, "Freecam Engine & Keybind Controls", 15)
 local FreecamCard = CreateCard(Tab5_Flight, 94, 16)
+FUI.CreateFavoriteStarButton(FreecamCard, "Freecam Explorer [C] (Detach Camera & Fly)", UDim2.new(1, -30, 0, 13), UDim2.new(0, 24, 0, 24))
 local freecamToggleBtn = Instance.new("TextButton", FreecamCard)
 freecamToggleBtn.Size = UDim2.new(0.5, -14, 0, 34)
 freecamToggleBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -5332,6 +6981,7 @@ freecamKeyDeleteBtn.MouseButton1Click:Connect(function()
 	RefreshFreecamUI()
 	SaveConfig(false)
 end)
+FUI.RefreshFreecamUI = RefreshFreecamUI
 RefreshFreecamUI()
 end if FUI.SetLoadProgress then FUI.SetLoadProgress(56, "Loading Flight, Noclip & Freecam...") end xpcall(SetupTab5, warn)
 local SelectedTargets, FlingActive = {}, false local RefreshFlingPlayerList, StopFling
@@ -5493,10 +7143,13 @@ local function Message(title, text, timeLen) pcall(function() StarterGui:SetCore
 	local Accessory = TCharacter:FindFirstChildOfClass("Accessory")
 	local Handle = Accessory and Accessory:FindFirstChild("Handle")
 	if Character and Humanoid and RootPart then if RootPart.Velocity.Magnitude < 50 then
-			genv.OldPos = RootPart.CFrame end if THumanoid and THumanoid.Sit then return end if THead then
-			workspace.CurrentCamera.CameraSubject = THead elseif Handle then
-			workspace.CurrentCamera.CameraSubject = Handle elseif THumanoid and TRootPart then
-			workspace.CurrentCamera.CameraSubject = THumanoid end local FPos = function(BasePart, Pos, Ang)
+			genv.OldPos = RootPart.CFrame end if THumanoid and THumanoid.Sit then return end local curCam = workspace.CurrentCamera
+		if curCam then
+			if THead then curCam.CameraSubject = THead
+			elseif Handle then curCam.CameraSubject = Handle
+			elseif THumanoid and TRootPart then curCam.CameraSubject = THumanoid end
+		end
+		local FPos = function(BasePart, Pos, Ang)
 			RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
 			Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
 			RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7) RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
@@ -5511,7 +7164,7 @@ local function Message(title, text, timeLen) pcall(function() StarterGui:SetCore
 		Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false) if TRootPart then SFBasePart(TRootPart)
 		elseif THead then SFBasePart(THead) elseif Handle then SFBasePart(Handle) end BV:Destroy()
 		Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-		workspace.CurrentCamera.CameraSubject = Humanoid if genv.OldPos then repeat
+		if workspace.CurrentCamera then workspace.CurrentCamera.CameraSubject = Humanoid end if genv.OldPos then repeat
 				RootPart.CFrame = genv.OldPos * CFrame.new(0, 0.5, 0)
 				Character:SetPrimaryPartCFrame(genv.OldPos * CFrame.new(0, 0.5, 0)) Humanoid:ChangeState("GettingUp")
 				for _, part in pairs(Character:GetChildren()) do if part:IsA("BasePart") then
@@ -6114,6 +7767,7 @@ local function SetupTab7()
 	CreateSectionHeader(Tab7_Visuals, "1. Aimbot Engines ([Q] Normal | [T] Target Player)", 1)
 
 	local AimbotEngineCard = CreateCard(Tab7_Visuals, 170, 2)
+FUI.CreateFavoriteStarButton(AimbotEngineCard, "1. Normal Aimbot [Q] (Camera Lock)", UDim2.new(1, -30, 0, 13), UDim2.new(0, 24, 0, 24))
 	local aimbotToggleBtn = Instance.new("TextButton", AimbotEngineCard)
 	aimbotToggleBtn.Size = UDim2.new(0.5, -14, 0, 34) aimbotToggleBtn.Position = UDim2.new(0, 10, 0, 10)
 	aimbotToggleBtn.Font = Enum.Font.GothamBold aimbotToggleBtn.TextSize = 12
@@ -6160,6 +7814,7 @@ local function SetupTab7()
 	AddCorner(aimbotDurationBox, 6)
 
 	local TargetAimbotCard = CreateCard(Tab7_Visuals, 94, 3)
+FUI.CreateFavoriteStarButton(TargetAimbotCard, "2. Target Specific Player Aimbot [T]", UDim2.new(1, -30, 0, 13), UDim2.new(0, 24, 0, 24))
 	local targetAimbotToggleBtn = Instance.new("TextButton", TargetAimbotCard)
 	targetAimbotToggleBtn.Size = UDim2.new(0.5, -14, 0, 34) targetAimbotToggleBtn.Position = UDim2.new(0, 10, 0, 10)
 	targetAimbotToggleBtn.Font = Enum.Font.GothamBold targetAimbotToggleBtn.TextSize = 12
@@ -6199,6 +7854,7 @@ local function SetupTab7()
 	CreateSectionHeader(Tab7_Visuals, "2. Unified Auto-Shoot / Triggerbot (1. Aimbot Lock | 2. Normal Crosshair)", 5)
 
 	local AutoShootCard = CreateCard(Tab7_Visuals, 132, 6)
+FUI.CreateFavoriteStarButton(AutoShootCard, "Auto-Shoot Mode 1: Aimbot Lock Auto-Shoot [Z]", UDim2.new(1, -30, 0, 13), UDim2.new(0, 24, 0, 24))
 	local autoShootToggleBtn = Instance.new("TextButton", AutoShootCard)
 	autoShootToggleBtn.Size = UDim2.new(0.5, -14, 0, 34) autoShootToggleBtn.Position = UDim2.new(0, 10, 0, 10)
 	autoShootToggleBtn.Font = Enum.Font.GothamBold autoShootToggleBtn.TextSize = 12
@@ -6346,6 +8002,7 @@ local function SetupTab7()
 		aimPartBtn.Text = (aimPartName == "Head") and "Aim Part: Head" or "Aim Part: Body"
 		SyncAimbotFovCircleVisibility()
 	end
+	FUI.RefreshAimbotUI = RefreshAimbotVisuals
 	table.insert(ThemeObjects.CustomCallbacks, RefreshAimbotVisuals)
 
 	if FUI.RegisterSearchFunction then
@@ -6762,7 +8419,7 @@ local function SetupTab7()
 		SaveConfig(false) end)
 
 	CreateSectionHeader(Tab7_Visuals, "5. Camera Field of View & Perspective", 20)
-	CreateSlider(Tab7_Visuals, "Camera Field of View (FOV)", 30, 120, Config.FOV, 21, function(val)
+	FUI.FovSliderHandle = CreateSlider(Tab7_Visuals, "Camera Field of View (FOV)", 30, 120, Config.FOV, 21, function(val)
 		Config.FOV = val pcall(function() workspace.CurrentCamera.FieldOfView = val end) SaveConfig(false) end)
 	local CamModeCard = CreateCard(Tab7_Visuals, 50, 22) local CamModeList = Instance.new("UIListLayout")
 	CamModeList.FillDirection = Enum.FillDirection.Horizontal
@@ -6800,344 +8457,759 @@ local function SetupTab7()
 				pcall(function() Lighting.ClockTime = DefaultLighting.ClockTime end) end SaveConfig(false) end) end
 end if FUI.SetLoadProgress then FUI.SetLoadProgress(74, "Loading Aimbot, ESP & Lighting...") end xpcall(SetupTab7, warn)
 local RunningExecutorThreads = {}
-local function SetupTab8() CreateSectionHeader(Tab8_Executor, "Multi-Tab Luau Script Executor", 1)
-local ExecHeaderCard = CreateCard(Tab8_Executor, 42, 2)
-local ScrollLeftBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(0, 8, 0.5, -14), "<", "PanelBg", 13)
-local ScrollRightBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -70, 0.5, -14), ">", "PanelBg", 13)
-local AddTabBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -36, 0.5, -14), "+", "Accent", 15)
-local TabsScroll = Instance.new("ScrollingFrame") TabsScroll.Size = UDim2.new(1, -118, 0, 32)
-TabsScroll.Position = UDim2.new(0, 42, 0.5, -16) TabsScroll.BackgroundTransparency = 1
-TabsScroll.BorderSizePixel = 0 TabsScroll.ScrollBarThickness = 3 TabsScroll.ScrollingEnabled = true
-TabsScroll.CanvasSize = UDim2.new(0, 0, 0, 0) TabsScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
-TabsScroll.ScrollingDirection = Enum.ScrollingDirection.X TabsScroll.Parent = ExecHeaderCard
-RegisterThemeObject(TabsScroll, "ScrollBarImageColor3", "Accent")
-local TabsScrollLayout = Instance.new("UIListLayout")
-TabsScrollLayout.FillDirection = Enum.FillDirection.Horizontal
-TabsScrollLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-TabsScrollLayout.Padding = UDim.new(0, 6) TabsScrollLayout.Parent = TabsScroll
-local function ScrollExecutorTabsBy(deltaX)
-	local totalW = (#savedConfig.ExecutorTabs * 134) + 8
-	local maxScroll = math.max(0, totalW - TabsScroll.AbsoluteSize.X)
-	local targetX = math.clamp(TabsScroll.CanvasPosition.X + deltaX, 0, maxScroll)
-	FUI.SafeTween(TabsScroll, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		CanvasPosition = Vector2.new(targetX, 0)
-	})
-end
-ScrollLeftBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(-134) end)
-ScrollRightBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(134) end)
-local function HandleTabWheelScroll(input)
-	if input.UserInputType == Enum.UserInputType.MouseWheel then
-		ScrollExecutorTabsBy(-input.Position.Z * 110)
+local function SetupTab8()
+	CreateSectionHeader(Tab8_Executor, "Multi-Tab Luau Script Executor", 1)
+	local ExecHeaderCard = CreateCard(Tab8_Executor, 44, 2)
+	local ScrollLeftBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(0, 8, 0.5, -14), "<", "PanelBg", 13)
+	ScrollLeftBtn.ZIndex = 8
+	local ScrollRightBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -70, 0.5, -14), ">", "PanelBg", 13)
+	ScrollRightBtn.ZIndex = 8
+	local AddTabBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -36, 0.5, -14), "+", "Accent", 15)
+	AddTabBtn.ZIndex = 8
+
+	local TabsScroll = Instance.new("ScrollingFrame")
+	TabsScroll.Size = UDim2.new(1, -118, 0, 34)
+	TabsScroll.Position = UDim2.new(0, 42, 0.5, -17)
+	TabsScroll.BackgroundTransparency = 1
+	TabsScroll.BorderSizePixel = 0
+	TabsScroll.ScrollBarThickness = 3
+	TabsScroll.ScrollingEnabled = true
+	TabsScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+	TabsScroll.CanvasSize = UDim2.new(0, 140, 0, 0)
+	TabsScroll.ScrollingDirection = Enum.ScrollingDirection.X
+	TabsScroll.ZIndex = 5
+	TabsScroll.Parent = ExecHeaderCard
+	RegisterThemeObject(TabsScroll, "ScrollBarImageColor3", "Accent")
+
+	local TabsScrollLayout = Instance.new("UIListLayout")
+	TabsScrollLayout.FillDirection = Enum.FillDirection.Horizontal
+	TabsScrollLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	TabsScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	TabsScrollLayout.Padding = UDim.new(0, 6)
+	TabsScrollLayout.Parent = TabsScroll
+
+	local function UpdateTabsCanvasSize()
+		local count = (type(savedConfig.ExecutorTabs) == "table") and #savedConfig.ExecutorTabs or 1
+		local totalW = math.max(TabsScroll.AbsoluteSize.X, (count * 134) + 10)
+		TabsScroll.CanvasSize = UDim2.new(0, totalW, 0, 0)
 	end
-end
-ExecHeaderCard.InputChanged:Connect(HandleTabWheelScroll)
-TabsScroll.InputChanged:Connect(HandleTabWheelScroll)
 
-local EditorCard = CreateCard(Tab8_Executor, 240, 3)
-EditorCard.ClipsDescendants = true
-
-local CodeScroll = Instance.new("ScrollingFrame")
-CodeScroll.Size = UDim2.new(1, -16, 1, -16)
-CodeScroll.Position = UDim2.new(0, 8, 0, 8)
-CodeScroll.BackgroundTransparency = 0.15
-CodeScroll.BorderSizePixel = 0
-CodeScroll.ScrollBarThickness = 6
-CodeScroll.ScrollingEnabled = true
-CodeScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-CodeScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-CodeScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-CodeScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-CodeScroll.ScrollBarImageTransparency = 0.2
-CodeScroll.ClipsDescendants = true
-CodeScroll.Parent = EditorCard
-RegisterThemeObject(CodeScroll, "BackgroundColor3", "PanelBg")
-RegisterThemeObject(CodeScroll, "ScrollBarImageColor3", "Accent")
-AddCorner(CodeScroll, 6)
-
-local TabCodeBoxes = {}
-local TabScrollY = {}
-local ActiveTabRef = nil
-local ActiveCodeBox = nil
-
-local function UpdateCodeScrollCanvas()
-	local box = ActiveCodeBox
-	if not box or not box.Parent then return end
-	local minHeight = math.max(0, CodeScroll.AbsoluteSize.Y - 12)
-	local textH = math.max(minHeight, box.TextBounds.Y + 24)
-	CodeScroll.CanvasSize = UDim2.new(0, 0, 0, textH)
-	box.Size = UDim2.new(1, -12, 0, textH)
-end
-CodeScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateCodeScrollCanvas)
-
-local function HandleCodeWheelScroll(input)
-	if input.UserInputType == Enum.UserInputType.MouseWheel then
-		local cur = CodeScroll.CanvasPosition.Y
-		local maxScroll = math.max(0, CodeScroll.CanvasSize.Y.Offset - CodeScroll.AbsoluteSize.Y)
-		local newY = math.clamp(cur - (input.Position.Z * 45), 0, maxScroll)
-		CodeScroll.CanvasPosition = Vector2.new(0, newY)
-		if ActiveTabRef then TabScrollY[ActiveTabRef] = newY end
+	local function ScrollExecutorTabsBy(deltaX)
+		UpdateTabsCanvasSize()
+		local maxScroll = math.max(0, TabsScroll.CanvasSize.X.Offset - TabsScroll.AbsoluteSize.X)
+		local targetX = math.clamp(TabsScroll.CanvasPosition.X + deltaX, 0, maxScroll)
+		TabsScroll.CanvasPosition = Vector2.new(targetX, 0)
 	end
-end
-CodeScroll.InputChanged:Connect(HandleCodeWheelScroll)
-
-local function GetOrCreateTabCodeBox(tabData)
-	local existing = TabCodeBoxes[tabData]
-	if existing and existing.Parent then return existing end
-	local box = Instance.new("TextBox")
-	box.Size = UDim2.new(1, -12, 1, 0)
-	box.AutomaticSize = Enum.AutomaticSize.Y
-	box.Position = UDim2.new(0, 6, 0, 6)
-	box.BackgroundTransparency = 1
-	box.MultiLine = true
-	box.ClearTextOnFocus = false
-	box.TextWrapped = true
-	box.Font = Enum.Font.Code
-	box.TextSize = 13
-	box.TextXAlignment = Enum.TextXAlignment.Left
-	box.TextYAlignment = Enum.TextYAlignment.Top
-	box.PlaceholderText = "-- Write your Luau script here..."
-	box.Text = tostring(tabData.Code or "")
-	box.Visible = false
-	box.Parent = CodeScroll
-	RegisterThemeObject(box, "TextColor3", "TextPrimary")
-	RegisterThemeObject(box, "PlaceholderColor3", "TextSecondary")
-	box.InputChanged:Connect(HandleCodeWheelScroll)
-	box:GetPropertyChangedSignal("Text"):Connect(function()
-		tabData.Code = box.Text
-		if ActiveCodeBox == box then UpdateCodeScrollCanvas() end
-		SaveConfig(false)
-	end)
-	box:GetPropertyChangedSignal("TextBounds"):Connect(function()
-		if ActiveCodeBox == box then UpdateCodeScrollCanvas() end
-	end)
-	box.FocusLost:Connect(function()
-		tabData.Code = box.Text
-		SaveConfig(false)
-	end)
-	TabCodeBoxes[tabData] = box
-	return box
-end
-
-local function CommitActiveTabBuffer()
-	if ActiveTabRef and ActiveCodeBox and ActiveCodeBox.Parent then
-		TabScrollY[ActiveTabRef] = CodeScroll.CanvasPosition.Y
-		ActiveTabRef.Code = ActiveCodeBox.Text
-	end
-end
-
-local function SyncTabChipColors()
-	local curTheme = GetTheme()
-	local activeIdx = savedConfig.ActiveExecutorTab
-	for _, ch in ipairs(TabsScroll:GetChildren()) do
-		if ch:IsA("Frame") then
-			ch.BackgroundColor3 = (ch.LayoutOrder == activeIdx) and curTheme.Accent or curTheme.PanelBg
+	ScrollLeftBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(-134) end)
+	ScrollRightBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(134) end)
+	local function HandleTabWheelScroll(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			ScrollExecutorTabsBy(-input.Position.Z * 110)
 		end
 	end
-end
+	ExecHeaderCard.InputChanged:Connect(HandleTabWheelScroll)
+	TabsScroll.InputChanged:Connect(HandleTabWheelScroll)
 
-local function ActivateExecutorTab(targetIdx, keepNameFocus)
-	if #savedConfig.ExecutorTabs == 0 then
-		table.insert(savedConfig.ExecutorTabs, { Name = "Script 1", Code = "" })
+	local EditorCard = CreateCard(Tab8_Executor, 240, 3)
+	EditorCard.ClipsDescendants = true
+
+	local CodeScroll = Instance.new("ScrollingFrame")
+	CodeScroll.Size = UDim2.new(1, -16, 1, -16)
+	CodeScroll.Position = UDim2.new(0, 8, 0, 8)
+	CodeScroll.BackgroundTransparency = 0.15
+	CodeScroll.BorderSizePixel = 0
+	CodeScroll.ScrollBarThickness = 6
+	CodeScroll.ScrollingEnabled = true
+	CodeScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+	CodeScroll.CanvasSize = UDim2.new(0, 0, 0, 220)
+	CodeScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	CodeScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+	CodeScroll.ScrollBarImageTransparency = 0.2
+	CodeScroll.ClipsDescendants = true
+	CodeScroll.Parent = EditorCard
+	RegisterThemeObject(CodeScroll, "BackgroundColor3", "PanelBg")
+	RegisterThemeObject(CodeScroll, "ScrollBarImageColor3", "Accent")
+	AddCorner(CodeScroll, 6)
+
+	local TabCodeBoxes = {}
+	local TabScrollY = {}
+	local ActiveTabRef = nil
+	local ActiveCodeBox = nil
+	local updatingCanvas = false
+
+	local function UpdateCodeScrollCanvas()
+		if updatingCanvas then return end
+		local box = ActiveCodeBox
+		if not box or not box.Parent then return end
+		updatingCanvas = true
+		local minHeight = math.max(200, CodeScroll.AbsoluteSize.Y - 12)
+		local textH = math.max(minHeight, box.TextBounds.Y + 28)
+		if math.abs(CodeScroll.CanvasSize.Y.Offset - textH) > 2 then
+			CodeScroll.CanvasSize = UDim2.new(0, 0, 0, textH)
+		end
+		if math.abs(box.Size.Y.Offset - textH) > 2 then
+			box.Size = UDim2.new(1, -14, 0, textH)
+		end
+		updatingCanvas = false
 	end
-	CommitActiveTabBuffer()
-	if not keepNameFocus and ActiveCodeBox and ActiveCodeBox.Parent and ActiveCodeBox:IsFocused() then
-		pcall(function() ActiveCodeBox:ReleaseFocus() end)
-	end
-	local clampedIdx = math.clamp(tonumber(targetIdx) or 1, 1, #savedConfig.ExecutorTabs)
-	savedConfig.ActiveExecutorTab = clampedIdx
-	local activeTab = savedConfig.ExecutorTabs[clampedIdx]
-	local activeBox = GetOrCreateTabCodeBox(activeTab)
-	for td, bx in pairs(TabCodeBoxes) do
-		if bx and bx.Parent then
-			bx.Visible = (td == activeTab)
+	CodeScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateCodeScrollCanvas)
+
+	local function HandleCodeWheelScroll(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			local cur = CodeScroll.CanvasPosition.Y
+			local maxScroll = math.max(0, CodeScroll.CanvasSize.Y.Offset - CodeScroll.AbsoluteSize.Y)
+			local newY = math.clamp(cur - (input.Position.Z * 45), 0, maxScroll)
+			CodeScroll.CanvasPosition = Vector2.new(0, newY)
+			if ActiveTabRef then TabScrollY[ActiveTabRef] = newY end
 		end
 	end
-	ActiveTabRef = activeTab
-	ActiveCodeBox = activeBox
-	if activeBox.Text ~= tostring(activeTab.Code or "") then
-		activeBox.Text = tostring(activeTab.Code or "")
-	end
-	UpdateCodeScrollCanvas()
-	CodeScroll.CanvasPosition = Vector2.new(0, TabScrollY[activeTab] or 0)
-	SyncTabChipColors()
-end
+	CodeScroll.InputChanged:Connect(HandleCodeWheelScroll)
 
-local ExecActionCard = CreateCard(Tab8_Executor, 48, 4)
-local ExecActionLayout = Instance.new("UIListLayout")
-ExecActionLayout.FillDirection = Enum.FillDirection.Horizontal
-ExecActionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-ExecActionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-ExecActionLayout.Padding = UDim.new(0, 12) ExecActionLayout.Parent = ExecActionCard
-local ExecuteBtn = MakeButton(ExecActionCard, UDim2.new(0, 155, 0, 32), nil, E.Play .. " Execute", "Accent", 12)
-local ClearBtn = MakeButton(ExecActionCard, UDim2.new(0, 155, 0, 32), nil, E.Broom .. " Clear", "AccentDark", 12)
-local TerminateBtn = Instance.new("TextButton") TerminateBtn.Size = UDim2.new(0, 155, 0, 32)
-TerminateBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55) TerminateBtn.Font = Enum.Font.GothamBold
-TerminateBtn.TextSize = 12 TerminateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-TerminateBtn.Text = E.Stop .. " Terminate" TerminateBtn.Parent = ExecActionCard
-AddCorner(TerminateBtn, 6) FUI.AttachSpringAndRipple(TerminateBtn)
-
-local function GetNextUniqueScriptName()
-	local used = {}
-	for _, td in ipairs(savedConfig.ExecutorTabs) do
-		if type(td.Name) == "string" then used[td.Name] = true end
-	end
-	local n = #savedConfig.ExecutorTabs + 1
-	while used["Script " .. tostring(n)] do
-		n = n + 1
-	end
-	return "Script " .. tostring(n)
-end
-
-local function RebuildExecutorTabs()
-	CommitActiveTabBuffer()
-	if #savedConfig.ExecutorTabs == 0 then
-		table.insert(savedConfig.ExecutorTabs, { Name = "Script 1", Code = "" })
-	end
-	savedConfig.ActiveExecutorTab = math.clamp(savedConfig.ActiveExecutorTab or 1, 1, #savedConfig.ExecutorTabs)
-
-	local validTabs = {}
-	for _, td in ipairs(savedConfig.ExecutorTabs) do
-		validTabs[td] = true
-		GetOrCreateTabCodeBox(td)
-	end
-	for td, bx in pairs(TabCodeBoxes) do
-		if not validTabs[td] then
-			if bx and bx.Parent then bx:Destroy() end
-			TabCodeBoxes[td] = nil
-			TabScrollY[td] = nil
-		end
-	end
-
-	for _, child in ipairs(TabsScroll:GetChildren()) do
-		if child:IsA("Frame") then child:Destroy() end
-	end
-
-	local theme = GetTheme()
-	for idx, tabData in ipairs(savedConfig.ExecutorTabs) do
-		local isSelected = (idx == savedConfig.ActiveExecutorTab)
-		local TabChip = Instance.new("Frame")
-		TabChip.LayoutOrder = idx TabChip.Size = UDim2.new(0, 128, 0, 26)
-		TabChip.BackgroundColor3 = isSelected and theme.Accent or theme.PanelBg TabChip.BorderSizePixel = 0
-		TabChip.Parent = TabsScroll AddCorner(TabChip, 6)
-
-		local SelectBtn = Instance.new("TextButton")
-		SelectBtn.Size = UDim2.new(0, 22, 1, 0) SelectBtn.BackgroundTransparency = 1
-		SelectBtn.Font = Enum.Font.GothamBold SelectBtn.TextSize = 11 SelectBtn.TextColor3 = theme.TextPrimary
-		SelectBtn.Text = tostring(idx) SelectBtn.Parent = TabChip
-		SelectBtn.MouseButton1Click:Connect(function()
-			ActivateExecutorTab(idx, false)
+	local function GetOrCreateTabCodeBox(tabData)
+		local existing = TabCodeBoxes[tabData]
+		if existing and existing.Parent then return existing end
+		local box = Instance.new("TextBox")
+		box.Size = UDim2.new(1, -14, 0, 220)
+		box.AutomaticSize = Enum.AutomaticSize.None
+		box.Position = UDim2.new(0, 6, 0, 6)
+		box.BackgroundTransparency = 1
+		box.MultiLine = true
+		box.ClearTextOnFocus = false
+		box.TextWrapped = true
+		box.Font = Enum.Font.Code
+		box.TextSize = 13
+		box.TextXAlignment = Enum.TextXAlignment.Left
+		box.TextYAlignment = Enum.TextYAlignment.Top
+		box.PlaceholderText = "Write your Luau script here..."
+		box.Text = tostring(tabData.Code or "")
+		box.Visible = false
+		box.Parent = CodeScroll
+		RegisterThemeObject(box, "TextColor3", "TextPrimary")
+		RegisterThemeObject(box, "PlaceholderColor3", "TextSecondary")
+		box.InputChanged:Connect(HandleCodeWheelScroll)
+		box:GetPropertyChangedSignal("Text"):Connect(function()
+			tabData.Code = box.Text
+			if ActiveCodeBox == box then UpdateCodeScrollCanvas() end
 			SaveConfig(false)
 		end)
-
-		local NameInput = Instance.new("TextBox")
-		NameInput.Size = UDim2.new(1, -48, 1, 0) NameInput.Position = UDim2.new(0, 22, 0, 0)
-		NameInput.BackgroundTransparency = 1 NameInput.ClearTextOnFocus = false
-		NameInput.Font = Enum.Font.GothamSemibold NameInput.TextSize = 11
-		NameInput.TextColor3 = theme.TextPrimary NameInput.Text = tabData.Name or ("Script " .. idx)
-		NameInput.Parent = TabChip
-		NameInput.Focused:Connect(function()
-			if savedConfig.ActiveExecutorTab ~= idx then
-				ActivateExecutorTab(idx, true)
-				SaveConfig(false)
-			end
+		box:GetPropertyChangedSignal("TextBounds"):Connect(function()
+			if ActiveCodeBox == box then UpdateCodeScrollCanvas() end
 		end)
-		NameInput.FocusLost:Connect(function()
-			local trimmed = tostring(NameInput.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-			tabData.Name = (trimmed ~= "") and trimmed or ("Script " .. tostring(idx))
-			NameInput.Text = tabData.Name
+		box.FocusLost:Connect(function()
+			tabData.Code = box.Text
 			SaveConfig(false)
 		end)
-
-		local DelTabBtn = Instance.new("TextButton") DelTabBtn.Size = UDim2.new(0, 22, 1, 0)
-		DelTabBtn.Position = UDim2.new(1, -22, 0, 0) DelTabBtn.BackgroundTransparency = 1
-		DelTabBtn.Font = Enum.Font.GothamBold DelTabBtn.TextSize = 13 DelTabBtn.TextColor3 = theme.TextPrimary
-		DelTabBtn.Text = E.Close DelTabBtn.Parent = TabChip
-		DelTabBtn.MouseButton1Click:Connect(function()
-			if #savedConfig.ExecutorTabs > 1 then
-				CommitActiveTabBuffer()
-				local removed = table.remove(savedConfig.ExecutorTabs, idx)
-				if removed and TabCodeBoxes[removed] then
-					pcall(function() TabCodeBoxes[removed]:Destroy() end)
-					TabCodeBoxes[removed] = nil
-					TabScrollY[removed] = nil
-				end
-				if idx < savedConfig.ActiveExecutorTab then
-					savedConfig.ActiveExecutorTab = savedConfig.ActiveExecutorTab - 1
-				else
-					savedConfig.ActiveExecutorTab = math.clamp(savedConfig.ActiveExecutorTab, 1, #savedConfig.ExecutorTabs)
-				end
-				SaveConfig(false)
-				RebuildExecutorTabs()
-			end
-		end)
+		TabCodeBoxes[tabData] = box
+		return box
 	end
 
-	TabsScroll.CanvasSize = UDim2.new(0, (#savedConfig.ExecutorTabs * 134) + 8, 0, 0)
-	ActivateExecutorTab(savedConfig.ActiveExecutorTab, false)
-end
+	local function CommitActiveTabBuffer()
+		if ActiveTabRef and ActiveCodeBox and ActiveCodeBox.Parent then
+			TabScrollY[ActiveTabRef] = CodeScroll.CanvasPosition.Y
+			ActiveTabRef.Code = ActiveCodeBox.Text
+		end
+	end
 
-table.insert(ThemeObjects.CustomCallbacks, function()
-	SyncTabChipColors()
-	local theme = GetTheme()
-	for _, ch in ipairs(TabsScroll:GetChildren()) do
-		if ch:IsA("Frame") then
-			for _, sub in ipairs(ch:GetChildren()) do
-				if sub:IsA("TextButton") or sub:IsA("TextBox") then
-					sub.TextColor3 = theme.TextPrimary
-				end
+	local function SyncTabChipColors()
+		local curTheme = GetTheme()
+		local activeIdx = savedConfig.ActiveExecutorTab
+		for _, ch in ipairs(TabsScroll:GetChildren()) do
+			if ch:IsA("Frame") then
+				ch.BackgroundColor3 = (ch.LayoutOrder == activeIdx) and curTheme.Accent or curTheme.PanelBg
 			end
 		end
 	end
-end)
 
-AddTabBtn.MouseButton1Click:Connect(function()
-	CommitActiveTabBuffer()
-	if ActiveCodeBox and ActiveCodeBox.Parent and ActiveCodeBox:IsFocused() then
-		pcall(function() ActiveCodeBox:ReleaseFocus() end)
+	local function SanitizeExecutorTabs()
+		if type(savedConfig.ExecutorTabs) ~= "table" then savedConfig.ExecutorTabs = {} end
+		for i = #savedConfig.ExecutorTabs, 1, -1 do
+			if type(savedConfig.ExecutorTabs[i]) ~= "table" then
+				table.remove(savedConfig.ExecutorTabs, i)
+			end
+		end
+		if #savedConfig.ExecutorTabs == 0 then
+			table.insert(savedConfig.ExecutorTabs, { Name = "Script 1", Code = "" })
+		end
+		savedConfig.ActiveExecutorTab = math.clamp(tonumber(savedConfig.ActiveExecutorTab) or 1, 1, #savedConfig.ExecutorTabs)
 	end
-	local newTab = { Name = GetNextUniqueScriptName(), Code = "" }
-	table.insert(savedConfig.ExecutorTabs, newTab)
-	savedConfig.ActiveExecutorTab = #savedConfig.ExecutorTabs
-	RebuildExecutorTabs()
-	SaveConfig(false)
-	task.defer(function()
-		local totalW = (#savedConfig.ExecutorTabs * 134) + 8
-		local maxScroll = math.max(0, totalW - TabsScroll.AbsoluteSize.X)
-		FUI.SafeTween(TabsScroll, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CanvasPosition = Vector2.new(maxScroll, 0)
+
+	local function ActivateExecutorTab(targetIdx, keepNameFocus)
+		SanitizeExecutorTabs()
+		CommitActiveTabBuffer()
+		if not keepNameFocus and ActiveCodeBox and ActiveCodeBox.Parent then
+			pcall(function()
+				if ActiveCodeBox:IsFocused() then ActiveCodeBox:ReleaseFocus() end
+			end)
+		end
+		local clampedIdx = math.clamp(tonumber(targetIdx) or 1, 1, #savedConfig.ExecutorTabs)
+		savedConfig.ActiveExecutorTab = clampedIdx
+		local activeTab = savedConfig.ExecutorTabs[clampedIdx]
+		local activeBox = GetOrCreateTabCodeBox(activeTab)
+		for td, bx in pairs(TabCodeBoxes) do
+			if bx and bx.Parent then
+				bx.Visible = (td == activeTab)
+			end
+		end
+		ActiveTabRef = activeTab
+		ActiveCodeBox = activeBox
+		if activeBox.Text ~= tostring(activeTab.Code or "") then
+			activeBox.Text = tostring(activeTab.Code or "")
+		end
+		UpdateCodeScrollCanvas()
+		CodeScroll.CanvasPosition = Vector2.new(0, TabScrollY[activeTab] or 0)
+		SyncTabChipColors()
+	end
+
+	local ExecActionCard = CreateCard(Tab8_Executor, 48, 4)
+	local ExecActionLayout = Instance.new("UIListLayout")
+	ExecActionLayout.FillDirection = Enum.FillDirection.Horizontal
+	ExecActionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	ExecActionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	ExecActionLayout.Padding = UDim.new(0, 12) ExecActionLayout.Parent = ExecActionCard
+	local ExecuteBtn = MakeButton(ExecActionCard, UDim2.new(0, 155, 0, 32), nil, E.Play .. " Execute", "Accent", 12)
+	local ClearBtn = MakeButton(ExecActionCard, UDim2.new(0, 155, 0, 32), nil, E.Broom .. " Clear", "AccentDark", 12)
+	local TerminateBtn = Instance.new("TextButton") TerminateBtn.Size = UDim2.new(0, 155, 0, 32)
+	TerminateBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55) TerminateBtn.Font = Enum.Font.GothamBold
+	TerminateBtn.TextSize = 12 TerminateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TerminateBtn.Text = E.Stop .. " Terminate" TerminateBtn.Parent = ExecActionCard
+	AddCorner(TerminateBtn, 6) FUI.AttachSpringAndRipple(TerminateBtn)
+
+	local function GetNextUniqueScriptName()
+		local used = {}
+		for _, td in ipairs(savedConfig.ExecutorTabs) do
+			if type(td.Name) == "string" then used[td.Name] = true end
+		end
+		local n = #savedConfig.ExecutorTabs + 1
+		while used["Script " .. tostring(n)] do
+			n = n + 1
+		end
+		return "Script " .. tostring(n)
+	end
+
+	local function RebuildExecutorTabs()
+		SanitizeExecutorTabs()
+		CommitActiveTabBuffer()
+
+		local validTabs = {}
+		for _, td in ipairs(savedConfig.ExecutorTabs) do
+			validTabs[td] = true
+			GetOrCreateTabCodeBox(td)
+		end
+		for td, bx in pairs(TabCodeBoxes) do
+			if not validTabs[td] then
+				if bx and bx.Parent then bx:Destroy() end
+				TabCodeBoxes[td] = nil
+				TabScrollY[td] = nil
+			end
+		end
+
+		for _, child in ipairs(TabsScroll:GetChildren()) do
+			if child:IsA("Frame") then child:Destroy() end
+		end
+
+		local theme = GetTheme()
+		for idx, tabData in ipairs(savedConfig.ExecutorTabs) do
+			local isSelected = (idx == savedConfig.ActiveExecutorTab)
+			local TabChip = Instance.new("Frame")
+			TabChip.LayoutOrder = idx
+			TabChip.Size = UDim2.new(0, 128, 0, 26)
+			TabChip.BackgroundColor3 = isSelected and theme.Accent or theme.PanelBg
+			TabChip.BorderSizePixel = 0
+			TabChip.ZIndex = 6
+			TabChip.Parent = TabsScroll
+			AddCorner(TabChip, 6)
+
+			local SelectBtn = Instance.new("TextButton")
+			SelectBtn.Size = UDim2.new(0, 22, 1, 0)
+			SelectBtn.BackgroundTransparency = 1
+			SelectBtn.Font = Enum.Font.GothamBold
+			SelectBtn.TextSize = 11
+			SelectBtn.TextColor3 = theme.TextPrimary
+			SelectBtn.Text = tostring(idx)
+			SelectBtn.ZIndex = 7
+			SelectBtn.Parent = TabChip
+			SelectBtn.MouseButton1Click:Connect(function()
+				ActivateExecutorTab(idx, false)
+				SaveConfig(false)
+			end)
+
+			local NameInput = Instance.new("TextBox")
+			NameInput.Size = UDim2.new(1, -48, 1, 0)
+			NameInput.Position = UDim2.new(0, 22, 0, 0)
+			NameInput.BackgroundTransparency = 1
+			NameInput.ClearTextOnFocus = false
+			NameInput.Font = Enum.Font.GothamSemibold
+			NameInput.TextSize = 11
+			NameInput.TextColor3 = theme.TextPrimary
+			NameInput.Text = tabData.Name or ("Script " .. idx)
+			NameInput.ZIndex = 7
+			NameInput.Parent = TabChip
+			NameInput.Focused:Connect(function()
+				if savedConfig.ActiveExecutorTab ~= idx then
+					ActivateExecutorTab(idx, true)
+					SaveConfig(false)
+				end
+			end)
+			NameInput.FocusLost:Connect(function()
+				local trimmed = tostring(NameInput.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+				tabData.Name = (trimmed ~= "") and trimmed or ("Script " .. tostring(idx))
+				NameInput.Text = tabData.Name
+				SaveConfig(false)
+			end)
+
+			local DelTabBtn = Instance.new("TextButton")
+			DelTabBtn.Size = UDim2.new(0, 22, 1, 0)
+			DelTabBtn.Position = UDim2.new(1, -22, 0, 0)
+			DelTabBtn.BackgroundTransparency = 1
+			DelTabBtn.Font = Enum.Font.GothamBold
+			DelTabBtn.TextSize = 13
+			DelTabBtn.TextColor3 = theme.TextPrimary
+			DelTabBtn.Text = E.Close
+			DelTabBtn.ZIndex = 7
+			DelTabBtn.Parent = TabChip
+			DelTabBtn.MouseButton1Click:Connect(function()
+				if #savedConfig.ExecutorTabs > 1 then
+					CommitActiveTabBuffer()
+					local removed = table.remove(savedConfig.ExecutorTabs, idx)
+					if removed and TabCodeBoxes[removed] then
+						pcall(function() TabCodeBoxes[removed]:Destroy() end)
+						TabCodeBoxes[removed] = nil
+						TabScrollY[removed] = nil
+					end
+					if idx < savedConfig.ActiveExecutorTab then
+						savedConfig.ActiveExecutorTab = savedConfig.ActiveExecutorTab - 1
+					else
+						savedConfig.ActiveExecutorTab = math.clamp(savedConfig.ActiveExecutorTab, 1, #savedConfig.ExecutorTabs)
+					end
+					SaveConfig(false)
+					RebuildExecutorTabs()
+				end
+			end)
+		end
+
+		UpdateTabsCanvasSize()
+		ActivateExecutorTab(savedConfig.ActiveExecutorTab, false)
+	end
+
+	table.insert(ThemeObjects.CustomCallbacks, function()
+		SyncTabChipColors()
+		local theme = GetTheme()
+		for _, ch in ipairs(TabsScroll:GetChildren()) do
+			if ch:IsA("Frame") then
+				for _, sub in ipairs(ch:GetChildren()) do
+					if sub:IsA("TextButton") or sub:IsA("TextBox") then
+						sub.TextColor3 = theme.TextPrimary
+					end
+				end
+			end
+		end
+	end)
+
+	AddTabBtn.MouseButton1Click:Connect(function()
+		SanitizeExecutorTabs()
+		CommitActiveTabBuffer()
+		if ActiveCodeBox and ActiveCodeBox.Parent then
+			pcall(function()
+				if ActiveCodeBox:IsFocused() then ActiveCodeBox:ReleaseFocus() end
+			end)
+		end
+		local newTab = { Name = GetNextUniqueScriptName(), Code = "" }
+		table.insert(savedConfig.ExecutorTabs, newTab)
+		savedConfig.ActiveExecutorTab = #savedConfig.ExecutorTabs
+		RebuildExecutorTabs()
+		SaveConfig(false)
+		task.defer(function()
+			UpdateTabsCanvasSize()
+			local maxScroll = math.max(0, TabsScroll.CanvasSize.X.Offset - TabsScroll.AbsoluteSize.X)
+			TabsScroll.CanvasPosition = Vector2.new(maxScroll, 0)
+		end)
+	end)
+
+	local ConsoleLines = {}
+	local ConsoleOpen = true
+	local ConsoleCard = CreateCard(Tab8_Executor, 166, 5)
+	ConsoleCard.ClipsDescendants = true
+	local ConsoleToggleBtn = MakeButton(ConsoleCard, UDim2.new(0.54, -10, 0, 26), UDim2.new(0, 10, 0, 8), E.Laptop .. " Live Console Output [Hide]", "PanelBg", 11)
+	local ConsoleCopyBtn = MakeButton(ConsoleCard, UDim2.new(0.23, -6, 0, 26), UDim2.new(0.54, 4, 0, 8), E.Clip .. " Copy", "PanelBg", 10)
+	local ConsoleClearBtn = MakeButton(ConsoleCard, UDim2.new(0.23, -10, 0, 26), UDim2.new(0.77, 2, 0, 8), E.Broom .. " Clear", "AccentDark", 10)
+
+	local ConsoleScroll = Instance.new("ScrollingFrame", ConsoleCard)
+	ConsoleScroll.Size = UDim2.new(1, -20, 0, 116)
+	ConsoleScroll.Position = UDim2.new(0, 10, 0, 42)
+	ConsoleScroll.BackgroundTransparency = 0.18
+	ConsoleScroll.BorderSizePixel = 0
+	ConsoleScroll.ScrollBarThickness = 5
+	ConsoleScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+	ConsoleScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	RegisterThemeObject(ConsoleScroll, "BackgroundColor3", "PanelBg")
+	RegisterThemeObject(ConsoleScroll, "ScrollBarImageColor3", "Accent")
+	AddCorner(ConsoleScroll, 6)
+	local ConsoleLayout = Instance.new("UIListLayout", ConsoleScroll)
+	ConsoleLayout.Padding = UDim.new(0, 2)
+	ConsoleLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	local ConsolePad = Instance.new("UIPadding", ConsoleScroll)
+	ConsolePad.PaddingTop = UDim.new(0, 4) ConsolePad.PaddingBottom = UDim.new(0, 4)
+	ConsolePad.PaddingLeft = UDim.new(0, 6) ConsolePad.PaddingRight = UDim.new(0, 6)
+
+	local consoleCounter = 0
+	local ConsoleMeta = {}
+	local ConsoleDirty = false
+	local ConsoleRenderQueued = false
+	local function SyncConsoleUI()
+		ConsoleRenderQueued = false
+		if isClosingPermanently or not ConsoleScroll or not ConsoleScroll.Parent then return end
+		if not ConsoleOpen or not isMenuVisible or ActiveTabName ~= "Script Executor" then return end
+		if not ConsoleDirty then return end
+		ConsoleDirty = false
+		for _, ch in ipairs(ConsoleScroll:GetChildren()) do
+			if ch:IsA("TextLabel") then ch:Destroy() end
+		end
+		local thPrimary = GetTheme().TextPrimary
+		for i = 1, #ConsoleLines do
+			local lvl = ConsoleMeta[i]
+			local col = (lvl == "ERR" and Color3.fromRGB(255, 95, 95))
+				or (lvl == "WARN" and Color3.fromRGB(255, 200, 75))
+				or (lvl == "RUN" and Color3.fromRGB(70, 225, 145))
+				or thPrimary
+			local lbl = Instance.new("TextLabel")
+			lbl.LayoutOrder = i
+			lbl.Size = UDim2.new(1, -8, 0, 16)
+			lbl.BackgroundTransparency = 1
+			lbl.Font = Enum.Font.Code
+			lbl.TextSize = 11
+			lbl.TextTruncate = Enum.TextTruncate.AtEnd
+			lbl.TextXAlignment = Enum.TextXAlignment.Left
+			lbl.TextColor3 = col
+			lbl.Text = ConsoleLines[i]
+			lbl.Parent = ConsoleScroll
+		end
+		local totalH = (#ConsoleLines * 18) + 10
+		ConsoleScroll.CanvasSize = UDim2.new(0, 0, 0, totalH)
+		ConsoleScroll.CanvasPosition = Vector2.new(0, math.max(0, totalH - ConsoleScroll.AbsoluteSize.Y))
+	end
+	FUI.SyncConsoleUI = SyncConsoleUI
+	local function AppendConsoleLine(level, msg)
+		if isClosingPermanently then return end
+		consoleCounter = consoleCounter + 1
+		local stamp = os.date("%H:%M:%S")
+		local prefix = (level == "ERR" and "[ERR]") or (level == "WARN" and "[WARN]") or (level == "RUN" and "[RUN]") or "[OUT]"
+		local lineStr = string.format("[%s] %s %s", stamp, prefix, tostring(msg))
+		table.insert(ConsoleLines, lineStr)
+		table.insert(ConsoleMeta, level)
+		if #ConsoleLines > 80 then
+			table.remove(ConsoleLines, 1)
+			table.remove(ConsoleMeta, 1)
+		end
+		ConsoleDirty = true
+		if ConsoleOpen and isMenuVisible and ActiveTabName == "Script Executor" and not ConsoleRenderQueued then
+			ConsoleRenderQueued = true
+			task.defer(SyncConsoleUI)
+		end
+	end
+
+	pcall(function()
+		local LogService = game:GetService("LogService")
+		table.insert(Connections, LogService.MessageOut:Connect(function(message, msgType)
+			if isClosingPermanently then return end
+			local lvl = (msgType == Enum.MessageType.MessageError and "ERR")
+				or (msgType == Enum.MessageType.MessageWarning and "WARN")
+				or "OUT"
+			AppendConsoleLine(lvl, message)
+		end))
+	end)
+
+	ConsoleToggleBtn.MouseButton1Click:Connect(function()
+		ConsoleOpen = not ConsoleOpen
+		ConsoleToggleBtn.Text = E.Laptop .. " Live Console Output [" .. (ConsoleOpen and "Hide" or "Show") .. "]"
+		ConsoleScroll.Visible = ConsoleOpen
+		FUI.SafeTween(ConsoleCard, FUI.TI.TabPage, {
+			Size = ConsoleOpen and UDim2.new(1, 0, 0, 166) or UDim2.new(1, 0, 0, 42)
 		})
+		if ConsoleOpen then SyncConsoleUI() end
 	end)
-end)
+	ConsoleClearBtn.MouseButton1Click:Connect(function()
+		table.clear(ConsoleLines)
+		table.clear(ConsoleMeta)
+		ConsoleDirty = false
+		for _, ch in ipairs(ConsoleScroll:GetChildren()) do
+			if ch:IsA("TextLabel") then ch:Destroy() end
+		end
+		ConsoleScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	end)
+	ConsoleCopyBtn.MouseButton1Click:Connect(function()
+		SafeClipboard(table.concat(ConsoleLines, "\n"))
+		ConsoleCopyBtn.Text = E.Check .. " Copied"
+		task.delay(1.0, function()
+			if ConsoleCopyBtn and ConsoleCopyBtn.Parent then ConsoleCopyBtn.Text = E.Clip .. " Copy" end
+		end)
+	end)
 
-ExecuteBtn.MouseButton1Click:Connect(function()
-	CommitActiveTabBuffer()
-	local source = ActiveCodeBox and ActiveCodeBox.Text or ""
-	if source and #source > 0 then
+	local function ExecuteSourceWithLogging(source, labelName)
+		if not source or #source == 0 then return end
+		AppendConsoleLine("RUN", "Executing " .. tostring(labelName or "Script") .. "...")
 		local fn, err = SafeLoadstring(source)
 		if fn then
-			table.insert(RunningExecutorThreads, task.spawn(function() pcall(fn) end))
+			local thRef
+			thRef = task.spawn(function()
+				local ok, runErr = pcall(fn)
+				if not ok then
+					AppendConsoleLine("ERR", "Runtime Error: " .. tostring(runErr))
+				end
+				for i = #RunningExecutorThreads, 1, -1 do
+					if RunningExecutorThreads[i] == thRef or coroutine.status(RunningExecutorThreads[i]) == "dead" then
+						table.remove(RunningExecutorThreads, i)
+					end
+				end
+			end)
+			table.insert(RunningExecutorThreads, thRef)
 		else
+			AppendConsoleLine("ERR", "Compile Error: " .. tostring(err))
 			warn("[T.R Scripts Executor Compile Error]: " .. tostring(err))
 		end
 	end
-end)
 
-ClearBtn.MouseButton1Click:Connect(function()
-	if ActiveCodeBox and ActiveCodeBox.Parent then
-		ActiveCodeBox.Text = ""
-		if ActiveTabRef then ActiveTabRef.Code = "" end
-		UpdateCodeScrollCanvas()
-		SaveConfig(false)
+	ExecuteBtn.MouseButton1Click:Connect(function()
+		CommitActiveTabBuffer()
+		local source = ActiveCodeBox and ActiveCodeBox.Text or ""
+		ExecuteSourceWithLogging(source, ActiveTabRef and ActiveTabRef.Name or "Active Tab")
+	end)
+
+	ClearBtn.MouseButton1Click:Connect(function()
+		if ActiveCodeBox and ActiveCodeBox.Parent then
+			ActiveCodeBox.Text = ""
+			if ActiveTabRef then ActiveTabRef.Code = "" end
+			UpdateCodeScrollCanvas()
+			SaveConfig(false)
+		end
+	end)
+
+	TerminateBtn.MouseButton1Click:Connect(function()
+		for _, thread in ipairs(RunningExecutorThreads) do pcall(function() task.cancel(thread) end) end
+		RunningExecutorThreads = {}
+		AppendConsoleLine("WARN", "Terminated all running executor threads.")
+	end)
+
+	FUI.ExecutorBridge = {
+		GetActiveScript = function()
+			CommitActiveTabBuffer()
+			local nm = (ActiveTabRef and ActiveTabRef.Name and ActiveTabRef.Name ~= "") and ActiveTabRef.Name or "Saved Script"
+			local src = ActiveCodeBox and ActiveCodeBox.Text or ""
+			return nm, src
+		end,
+		RunScript = ExecuteSourceWithLogging,
+		LoadIntoNewTab = function(name, codeStr)
+			SanitizeExecutorTabs()
+			CommitActiveTabBuffer()
+			table.insert(savedConfig.ExecutorTabs, { Name = tostring(name or "Script"), Code = tostring(codeStr or "") })
+			savedConfig.ActiveExecutorTab = #savedConfig.ExecutorTabs
+			RebuildExecutorTabs()
+			SaveConfig(false)
+			AppendConsoleLine("OUT", "Loaded '" .. tostring(name) .. "' into new tab.")
+			if FUI.SwitchToTab then FUI.SwitchToTab("Script Executor") end
+		end
+	}
+
+	RebuildExecutorTabs()
+end
+if FUI.SetLoadProgress then FUI.SetLoadProgress(80, "Loading Multi-Tab Script Executor...") end
+xpcall(SetupTab8, warn)
+
+local function SetupTab11()
+	CreateSectionHeader(Tab11_Library, "Saved Scripts & Favorites Library (Pin " .. E.Star .. " | One-Click Run, Load or Copy)", 1)
+	if type(savedConfig.ExecutorLibrary) ~= "table" then savedConfig.ExecutorLibrary = {} end
+
+	local LibControlsCard = CreateCard(Tab11_Library, 86, 2)
+	local LibSearchBox = Instance.new("TextBox", LibControlsCard)
+	LibSearchBox.Size = UDim2.new(1, -20, 0, 30)
+	LibSearchBox.Position = UDim2.new(0, 10, 0, 8)
+	LibSearchBox.PlaceholderText = E.Search .. " Search saved & favorite scripts..."
+	LibSearchBox.Text = ""
+	LibSearchBox.ClearTextOnFocus = false
+	LibSearchBox.Font = Enum.Font.GothamSemibold
+	LibSearchBox.TextSize = 12
+	LibSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+	RegisterThemeObject(LibSearchBox, "BackgroundColor3", "PanelBg")
+	RegisterThemeObject(LibSearchBox, "TextColor3", "TextPrimary")
+	RegisterThemeObject(LibSearchBox, "PlaceholderColor3", "TextSecondary")
+	AddCorner(LibSearchBox, 6)
+	local lsp = Instance.new("UIPadding", LibSearchBox)
+	lsp.PaddingLeft = UDim.new(0, 8)
+
+	local SaveActiveBtn = MakeButton(LibControlsCard, UDim2.new(0.5, -14, 0, 32), UDim2.new(0, 10, 0, 46), E.Plus .. " Save Active Executor Tab", "Accent", 11)
+	local FilterFavBtn = MakeButton(LibControlsCard, UDim2.new(0.5, -14, 0, 32), UDim2.new(0.5, 4, 0, 46), E.Star .. " Filter: All Scripts", "PanelBg", 11)
+
+	local LibScrollCard = CreateCard(Tab11_Library, 270, 3)
+	LibScrollCard.ClipsDescendants = true
+	local LibScroll = Instance.new("ScrollingFrame", LibScrollCard)
+	LibScroll.Size = UDim2.new(1, -16, 1, -16)
+	LibScroll.Position = UDim2.new(0, 8, 0, 8)
+	LibScroll.BackgroundTransparency = 0.20
+	LibScroll.BorderSizePixel = 0
+	LibScroll.ScrollBarThickness = 6
+	LibScroll.ScrollingEnabled = true
+	LibScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+	LibScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	LibScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	LibScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+	RegisterThemeObject(LibScroll, "BackgroundColor3", "PanelBg")
+	RegisterThemeObject(LibScroll, "ScrollBarImageColor3", "Accent")
+	AddCorner(LibScroll, 6)
+
+	local LibListLayout = Instance.new("UIListLayout", LibScroll)
+	LibListLayout.Padding = UDim.new(0, 6)
+	LibListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	local LibListPad = Instance.new("UIPadding", LibScroll)
+	LibListPad.PaddingTop = UDim.new(0, 6) LibListPad.PaddingBottom = UDim.new(0, 6)
+	LibListPad.PaddingLeft = UDim.new(0, 6) LibListPad.PaddingRight = UDim.new(0, 6)
+
+	local showOnlyFavs = false
+
+	local function RebuildLibraryUI()
+		for _, ch in ipairs(LibScroll:GetChildren()) do
+			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
+		end
+		local q = tostring(LibSearchBox.Text or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+		local sorted = {}
+		for i, item in ipairs(savedConfig.ExecutorLibrary) do
+			if type(item) == "table" then
+				local isFav = (item.Favorite == true)
+				local nm = tostring(item.Name or ("Saved " .. i))
+				if (not showOnlyFavs or isFav) and (q == "" or nm:lower():find(q, 1, true)) then
+					table.insert(sorted, { Item = item, OrigIdx = i })
+				end
+			end
+		end
+		table.sort(sorted, function(a, b)
+			local fa = (a.Item.Favorite == true)
+			local fb = (b.Item.Favorite == true)
+			if fa ~= fb then return fa end
+			return tostring(a.Item.Name or ""):lower() < tostring(b.Item.Name or ""):lower()
+		end)
+		local th = GetTheme()
+		FUI.TweenButtonState(FilterFavBtn, showOnlyFavs and th.Accent or th.PanelBg, nil, showOnlyFavs)
+		FilterFavBtn.Text = showOnlyFavs and (E.Star .. " Filter: Favorites Only") or (E.Star .. " Filter: All Scripts")
+
+		if #sorted == 0 then
+			local emptyLbl = MakeLabel(LibScroll, UDim2.new(1, -12, 0, 36), nil, "No saved scripts found. Click '+ Save Active Executor Tab' above to save one.", Enum.Font.GothamSemibold, 11, "TextSecondary", Enum.TextXAlignment.Center)
+			emptyLbl.TextWrapped = true
+			LibScroll.CanvasSize = UDim2.new(0, 0, 0, 50)
+			return
+		end
+		for orderIdx, entry in ipairs(sorted) do
+			local item = entry.Item
+			local row = Instance.new("Frame", LibScroll)
+			row.LayoutOrder = orderIdx
+			row.Size = UDim2.new(1, -6, 0, 44)
+			row.BackgroundTransparency = 0.08
+			row.BorderSizePixel = 0
+			row.BackgroundColor3 = th.CardBg
+			AddCorner(row, 8)
+			local rStroke = Instance.new("UIStroke", row)
+			rStroke.Thickness = 1
+			rStroke.Transparency = item.Favorite and 0.15 or 0.55
+			rStroke.Color = item.Favorite and th.Accent or th.Stroke
+
+			local favBtn = Instance.new("TextButton", row)
+			favBtn.Size = UDim2.new(0, 28, 0, 28)
+			favBtn.Position = UDim2.new(0, 6, 0.5, -14)
+			favBtn.BackgroundTransparency = 1
+			favBtn.Font = Enum.Font.GothamBold
+			favBtn.TextSize = 16
+			favBtn.Text = E.Star
+			favBtn.TextColor3 = item.Favorite and Color3.fromRGB(255, 205, 55) or th.TextSecondary
+			favBtn.MouseButton1Click:Connect(function()
+				item.Favorite = not item.Favorite
+				SaveConfig(false)
+				RebuildLibraryUI()
+			end)
+
+			local nmLbl = MakeLabel(row, UDim2.new(1, -296, 0, 20), UDim2.new(0, 36, 0, 4), tostring(item.Name or "Script"), Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+			nmLbl.TextTruncate = Enum.TextTruncate.AtEnd
+			local charLen = #(tostring(item.Code or ""))
+			local autoTag = item.AutoRun and " | Auto-Run" or ""
+			local subLbl = MakeLabel(row, UDim2.new(1, -296, 0, 16), UDim2.new(0, 36, 0, 24), string.format("%d chars  |  %s%s", charLen, item.Favorite and "Favorite" or "Saved", autoTag), Enum.Font.Gotham, 10, "TextSecondary", Enum.TextXAlignment.Left)
+			subLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+			local autoBtn = MakeButton(row, UDim2.new(0, 54, 0, 28), UDim2.new(1, -252, 0.5, -14), item.AutoRun and "Auto:ON" or "Auto", nil, 10)
+			FUI.TweenButtonState(autoBtn, item.AutoRun and Color3.fromRGB(38, 178, 102) or th.PanelBg, Color3.fromRGB(255, 255, 255), item.AutoRun == true)
+			autoBtn.MouseButton1Click:Connect(function()
+				item.AutoRun = not (item.AutoRun == true)
+				SaveConfig(false)
+				RebuildLibraryUI()
+				NotifyFeatureToggle("Auto-Run: " .. tostring(item.Name or "Script"), item.AutoRun)
+			end)
+
+			local runBtn = MakeButton(row, UDim2.new(0, 56, 0, 28), UDim2.new(1, -192, 0.5, -14), E.Play .. " Run", "Accent", 11)
+			runBtn.MouseButton1Click:Connect(function()
+				if FUI.ExecutorBridge and FUI.ExecutorBridge.RunScript then
+					FUI.ExecutorBridge.RunScript(item.Code or "", item.Name)
+				end
+			end)
+
+			local loadBtn = MakeButton(row, UDim2.new(0, 54, 0, 28), UDim2.new(1, -132, 0.5, -14), "Load", "AccentDark", 11)
+			loadBtn.MouseButton1Click:Connect(function()
+				if FUI.ExecutorBridge and FUI.ExecutorBridge.LoadIntoNewTab then
+					FUI.ExecutorBridge.LoadIntoNewTab(item.Name, item.Code or "")
+				end
+			end)
+
+			local copyBtn = MakeButton(row, UDim2.new(0, 34, 0, 28), UDim2.new(1, -74, 0.5, -14), E.Clip, "PanelBg", 12)
+			copyBtn.MouseButton1Click:Connect(function()
+				SafeClipboard(tostring(item.Code or ""))
+				copyBtn.Text = E.Check
+				task.delay(0.9, function() if copyBtn and copyBtn.Parent then copyBtn.Text = E.Clip end end)
+			end)
+
+			local delBtn = Instance.new("TextButton", row)
+			delBtn.Size = UDim2.new(0, 30, 0, 28)
+			delBtn.Position = UDim2.new(1, -36, 0.5, -14)
+			delBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+			delBtn.BorderSizePixel = 0
+			delBtn.Font = Enum.Font.GothamBold
+			delBtn.TextSize = 12
+			delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			delBtn.Text = E.Trash
+			AddCorner(delBtn, 6)
+			FUI.AttachSpringAndRipple(delBtn)
+			delBtn.MouseButton1Click:Connect(function()
+				for k = #savedConfig.ExecutorLibrary, 1, -1 do
+					if savedConfig.ExecutorLibrary[k] == item then
+						table.remove(savedConfig.ExecutorLibrary, k)
+						break
+					end
+				end
+				SaveConfig(false)
+				RebuildLibraryUI()
+			end)
+		end
+		LibScroll.CanvasSize = UDim2.new(0, 0, 0, (#sorted * 50) + 16)
 	end
-end)
 
-TerminateBtn.MouseButton1Click:Connect(function()
-	for _, thread in ipairs(RunningExecutorThreads) do pcall(function() task.cancel(thread) end) end
-	RunningExecutorThreads = {}
-end)
-
-RebuildExecutorTabs()
-end if FUI.SetLoadProgress then FUI.SetLoadProgress(82, "Loading Multi-Tab Script Executor...") end xpcall(SetupTab8, warn)
+	table.insert(ThemeObjects.CustomCallbacks, RebuildLibraryUI)
+	LibSearchBox:GetPropertyChangedSignal("Text"):Connect(RebuildLibraryUI)
+	FilterFavBtn.MouseButton1Click:Connect(function()
+		showOnlyFavs = not showOnlyFavs
+		RebuildLibraryUI()
+	end)
+	SaveActiveBtn.MouseButton1Click:Connect(function()
+		if not FUI.ExecutorBridge or not FUI.ExecutorBridge.GetActiveScript then return end
+		local nm, src = FUI.ExecutorBridge.GetActiveScript()
+		if not src or src == "" then
+			SaveActiveBtn.Text = E.Close .. " Active Tab Empty"
+			task.delay(1.0, function() if SaveActiveBtn and SaveActiveBtn.Parent then SaveActiveBtn.Text = E.Plus .. " Save Active Executor Tab" end end)
+			return
+		end
+		table.insert(savedConfig.ExecutorLibrary, 1, { Name = nm, Code = src, Favorite = false })
+		SaveConfig(false)
+		RebuildLibraryUI()
+		SaveActiveBtn.Text = E.Check .. " Saved to Library!"
+		NotifyFeatureToggle("Saved Script: " .. nm, true)
+		task.delay(1.0, function() if SaveActiveBtn and SaveActiveBtn.Parent then SaveActiveBtn.Text = E.Plus .. " Save Active Executor Tab" end end)
+	end)
+	RebuildLibraryUI()
+end
+if FUI.SetLoadProgress then FUI.SetLoadProgress(85, "Loading Saved Scripts Library...") end
+xpcall(SetupTab11, warn)
 local function SetupTab9()
 local listUpdateDelay = 5
 local notificationsEnabled = true
@@ -7430,13 +9502,7 @@ end)
 
 local function scrollToPlayer(targetName)
 	if not isMenuVisible then SetMenuVisible(true) end
-	ActiveTabName = "Hacker Detector"
-	for name, data in pairs(Tabs) do
-		data.Page.Visible = (name == "Hacker Detector")
-		local theme = GetTheme()
-		data.Button.BackgroundColor3 = (name == "Hacker Detector") and theme.Accent or theme.CardBg
-		data.Button.BackgroundTransparency = (name == "Hacker Detector") and 0.02 or 0.2
-	end
+	if FUI.SwitchToTab then FUI.SwitchToTab("Hacker Detector") end
 	local targetCard = playerCards[targetName]
 	if not targetCard or not targetCard.card then return end
 	task.defer(function()
@@ -14533,11 +16599,25 @@ RunService:BindToRenderStep("Aimbot_v2", Enum.RenderPriority.Camera.Value + 10, 
 end)
 local lastAirTimeReset = 0 local function landHum(h) h:ChangeState(Enum.HumanoidStateType.Landed)
 	h:ChangeState(Enum.HumanoidStateType.Running) end
-table.insert(Connections, RunService.Stepped:Connect(function() local char = player.Character
+local cachedLoopChar, cachedLoopRoot, cachedLoopHum = nil, nil, nil
+local function GetFastCharParts()
+	local c = player.Character
+	if not c then
+		cachedLoopChar, cachedLoopRoot, cachedLoopHum = nil, nil, nil
+		return nil, nil, nil
+	end
+	if c ~= cachedLoopChar or not (cachedLoopRoot and cachedLoopRoot.Parent == c) or not (cachedLoopHum and cachedLoopHum.Parent == c) then
+		cachedLoopChar = c
+		cachedLoopRoot = c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart
+		cachedLoopHum = c:FindFirstChildOfClass("Humanoid")
+	end
+	return c, cachedLoopRoot, cachedLoopHum
+end
+table.insert(Connections, RunService.Stepped:Connect(function()
+	local char, myRoot, myHum = GetFastCharParts()
 	if not char then return end if Config.AntiCheatBypass ~= false and isFlightActive() then
 		local nowT = os.clock() if nowT - lastAirTimeReset >= 0.85 then lastAirTimeReset = nowT
-			local h = char:FindFirstChildOfClass("Humanoid") if h then pcall(landHum, h) end end end
-	local myRoot = GetRootPart(char) local myHum = char:FindFirstChildOfClass("Humanoid")
+			if myHum then pcall(landHum, myHum) end end end
 	if Config.AntiFlingEnabled ~= false and not FlingActive and not (IsStickingToPlayer and IsStickingToPlayer()) and myRoot then
 		local maxSafeLinear = math.max(135, (Config.MasterUtilityEnabled and (Config.WalkSpeed + Config.JumpPower) or 85) * 1.8)
 		if isFlightActive() then maxSafeLinear = math.max(maxSafeLinear, (Config.FlySpeed or 50) * 1.5) end
@@ -14566,9 +16646,8 @@ table.insert(Connections, RunService.Stepped:Connect(function() local char = pla
 		end
 	end end))
 table.insert(Connections, RunService.Heartbeat:Connect(function(deltaTime)
-	camera = workspace.CurrentCamera local char = player.Character
-	local root = char and (char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart)
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	camera = workspace.CurrentCamera
+	local char, root, hum = GetFastCharParts()
 	if isFreecamActive and isFreecamActive() and char and root and hum then
 		local fcCF = GetFreecamAnchorCF and GetFreecamAnchorCF(root.CFrame)
 		if fcCF then root.CFrame = fcCF end
@@ -14578,14 +16657,33 @@ table.insert(Connections, RunService.Heartbeat:Connect(function(deltaTime)
 	end
 	frameCount = frameCount + 1 local now = os.clock() if now - lastFpsTime >= 0.5 then
 		currentFps = math.floor(frameCount / (now - lastFpsTime) + 0.5) frameCount = 0 lastFpsTime = now
-		if isMenuVisible and (ActiveTabName == "Themes & Status" or ActiveTabName == "Dashboard & Themes") then
+		local needHud = (FUI.TelemetryHudFrame and FUI.TelemetryHudFrame.Visible)
+		local needDash = (isMenuVisible and (ActiveTabName == "Themes & Status" or ActiveTabName == "Dashboard & Themes"))
+		if needDash or needHud then
 			local pingMs = 0 local okPing, pingVal = pcall(player.GetNetworkPing, player)
 			if okPing and type(pingVal) == "number" then pingMs = math.floor(pingVal * 1000 + 0.5) end
-			local mlKey = Config.MouseLockKeybind or "None"
-			PerfLabel.Text = string.format("FPS: %d  |  Ping: %d ms  |  Mouse Lock [%s]: %s", currentFps, pingMs, mlKey, CursorUnlockedOverride and "ON" or "OFF")
+			if needDash and not FUI.IsWindowUnfocused then
+				local mlKey = Config.MouseLockKeybind or "None"
+				PerfLabel.Text = string.format("FPS: %d  |  Ping: %d ms  |  Mouse Lock [%s]: %s", currentFps, pingMs, mlKey, CursorUnlockedOverride and "ON" or "OFF")
+				if FUI.UpdateSessionUptimeLabel then FUI.UpdateSessionUptimeLabel() end
+			end
+			if needHud and FUI.UpdateTelemetryHud then
+				local badges = {}
+				if isFlightActive and isFlightActive() then table.insert(badges, "FLY") end
+				if Config.NoclipEnabled then table.insert(badges, "NOCLIP") end
+				if aimbotEnabled then table.insert(badges, "AIM") end
+				if targetAimbotEnabled then table.insert(badges, "T-AIM") end
+				if autoShootEnabled or aimbotAutoShootEnabled then table.insert(badges, "SHOOT") end
+				if Config.ESPEnabled then table.insert(badges, "ESP") end
+				if isFreecamActive and isFreecamActive() then table.insert(badges, "FREECAM") end
+				if CursorUnlockedOverride then table.insert(badges, "M-LOCK") end
+				if Config.FpsBoosterEnabled then table.insert(badges, "FPS+") end
+				FUI.UpdateTelemetryHud(currentFps, pingMs, root, table.concat(badges, " | "))
+			end
 		end
 	end
 	if now - lastRadarRefresh >= 2.0 then lastRadarRefresh = now
+		if not FUI.IsWindowUnfocused then
 		if isMenuVisible and not ActiveKeybindCaptureCallback then
 			if ActiveTabName == "Player Radar" then RefreshRadarCards()
 			elseif ActiveTabName == "Target Fling" then RefreshFlingPlayerList()
@@ -14594,7 +16692,7 @@ table.insert(Connections, RunService.Heartbeat:Connect(function(deltaTime)
 				if excludeFrame and excludeFrame.Visible and rebuildExcludeList then pcall(rebuildExcludeList) end
 			end
 		end
-		if Config.ESPEnabled then RefreshESPHighlights() end end
+		if Config.ESPEnabled then RefreshESPHighlights() end end end
 	if Config.LockedTime ~= nil and Lighting.ClockTime ~= Config.LockedTime then
 		Lighting.ClockTime = Config.LockedTime end if Config.FullbrightEnabled then
 		if Lighting.GlobalShadows ~= false then Lighting.GlobalShadows = false end
@@ -14663,7 +16761,9 @@ table.insert(Connections, RunService.Heartbeat:Connect(function(deltaTime)
 table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gp)
 	if UserInputService:GetFocusedTextBox() ~= nil then return end
 	if input.UserInputType == Enum.UserInputType.Keyboard then local keyName = input.KeyCode.Name
-		if ActiveKeybindCaptureCallback then local cb = ActiveKeybindCaptureCallback
+		if ActiveKeybindCaptureCallback then
+			if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+			local cb = ActiveKeybindCaptureCallback
 			ActiveKeybindCaptureCallback = nil
 			if input.KeyCode == Enum.KeyCode.Delete or keyName == "Delete" or input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Escape then
 				cb("None") else cb(keyName) end return end if input.KeyCode == Enum.KeyCode.X then
@@ -14682,14 +16782,25 @@ table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gp
 			toggleFlightState() return end
 		local fcKey = Config.FreecamKeybind or "C"
 		if fcKey ~= "None" and keyName == fcKey and toggleFreecamState then toggleFreecamState() return end
+		local rwKey = Config.RadialWheelKeybind or "V"
+		if Config.RadialWheelEnabled ~= false and rwKey ~= "None" and keyName == rwKey and FUI.OpenRadialWheel then FUI.OpenRadialWheel() return end
 		for _, wp in ipairs(savedConfig.Waypoints) do
-			if wp.Keybind and wp.Keybind ~= "None" and wp.Keybind == keyName then
+			local wpPid = tonumber(wp.PlaceId) or 0
+			if (wpPid == 0 or wpPid == game.PlaceId) and wp.Keybind and wp.Keybind ~= "None" and wp.Keybind == keyName then
 				SafeTeleportToCoords(wp.X, wp.Y, wp.Z) end end
 		for plrName, boundKey in pairs(savedConfig.RadarKeybinds) do
 			if boundKey and boundKey ~= "None" and boundKey == keyName then
 				local targetPlr = Players:FindFirstChild(plrName) if targetPlr and targetPlr.Character then
 					local tRoot = GetRootPart(targetPlr.Character) if tRoot then local pos = tRoot.Position
 						SafeTeleportToCoords(pos.X, pos.Y + 3, pos.Z) end end end end end end))
+table.insert(Connections, UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		local rwKey = Config.RadialWheelKeybind or "V"
+		if rwKey ~= "None" and input.KeyCode.Name == rwKey and FUI.CloseRadialWheel then
+			FUI.CloseRadialWheel(true)
+		end
+	end
+end))
 local function ResetCharacterPhysicsCleanly()
 	pcall(function()
 		local char = player.Character
@@ -14751,6 +16862,15 @@ end
 local function ShutdownInstance(immediate) if isClosingPermanently then return end
 	isClosingPermanently = true
 	if _savePending then FlushConfigNow(false) end
+	if FUI._FpsAddedConn then pcall(function() FUI._FpsAddedConn:Disconnect() end) FUI._FpsAddedConn = nil end
+	if FUI.RestoreFpsBooster and Config.FpsBoosterEnabled then pcall(FUI.RestoreFpsBooster) end
+	if FUI.ClearWaypointBeacons then pcall(FUI.ClearWaypointBeacons) end
+	if FUI.ClearAllNotifications then pcall(FUI.ClearAllNotifications) end
+	if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+	if FUI._RadialMoveConn then pcall(function() FUI._RadialMoveConn:Disconnect() end) FUI._RadialMoveConn = nil end
+	FUI.IsWindowUnfocused = false
+	pcall(function() RunService:Set3dRenderingEnabled(true) end)
+	if FUI.TelemetryHudFrame then pcall(function() FUI.TelemetryHudFrame.Visible = false end) end
 	pcall(function() local b = Lighting:FindFirstChild("TR_LiquidGlassBlur") if b then b.Enabled = false b:Destroy() end end)
 	FlingActive, aimbotEnabled, targetAimbotEnabled, autoShootMasterEnabled, autoShootEnabled, aimbotAutoShootEnabled, currentTarget, masterFlightEnabled = false, false, false, false, false, false, nil, false
 	Config.NoclipEnabled = false
@@ -14824,6 +16944,7 @@ pcall(function()
 end)
 FUI.IsInitializing = false
 pcall(FUI.RefreshSearchCardsVisuals)
+if FUI.RebuildFavoritesTab then pcall(FUI.RebuildFavoritesTab) end
 ApplyCameraMode(Config.CameraOverrideMode)
 if Config.ESPEnabled then
 	task.defer(function()
@@ -14832,9 +16953,74 @@ if Config.ESPEnabled then
 	end)
 end
 if FUI.SetLoadProgress then FUI.SetLoadProgress(99, "Applying Theme & Finalizing UI...") end
+FUI.SoftResetAll = function()
+	Config.FOV = DefaultCamera.FOV or 70
+	Config.FullbrightEnabled = false
+	Config.NoFogEnabled = false
+	Config.LockedTime = nil
+	Config.NoclipEnabled = false
+	Config.SpiderClimb = false
+	Config.InfiniteJump = false
+	Config.MasterUtilityEnabled = false
+	Config.CameraOverrideMode = "Free / Unlocked"
+	if stopFreecam then pcall(stopFreecam) end
+	if SetSpectateTarget then pcall(SetSpectateTarget, nil) end
+	if stopFlight then pcall(stopFlight) end
+	if Config.FpsBoosterEnabled and FUI.RestoreFpsBooster then
+		Config.FpsBoosterEnabled = false
+		savedConfig.Settings.FpsBoosterEnabled = false
+		pcall(FUI.RestoreFpsBooster)
+	end
+	local resetToggleNames = {
+		"Fullbright Lighting Mode (No Shadows + Max Illumination)",
+		"Remove Fog (Clear Legacy Fog & Atmosphere Haze)",
+		"FPS Booster & Potato Mode (Lowers Textures/Particles/Shadows)",
+		"Noclip Mode (Disable Character CanCollide)",
+		"Speed-Synced Spider Climb (Climb Walls at Character WalkSpeed)",
+		"Infinite Jump (Jump Continuously Mid-Air Without Ground Touch)",
+		"Master Utility Switch (Enable WalkSpeed & JumpPower)"
+	}
+	for _, tName in ipairs(resetToggleNames) do
+		local setter = FUI.ToggleHandles and FUI.ToggleHandles[tName]
+		if setter then pcall(setter, false, false) end
+	end
+	if FUI.FovSliderHandle and FUI.FovSliderHandle.SetValue then
+		pcall(FUI.FovSliderHandle.SetValue, Config.FOV)
+	end
+	if ApplyCameraMode then pcall(ApplyCameraMode, "Free / Unlocked") end
+	pcall(function()
+		if workspace.CurrentCamera then workspace.CurrentCamera.FieldOfView = DefaultCamera.FOV end
+		player.CameraMode = DefaultCamera.CameraMode
+		player.CameraMinZoomDistance = DefaultCamera.MinZoom
+		player.CameraMaxZoomDistance = DefaultCamera.MaxZoom
+		Lighting.ClockTime = DefaultLighting.ClockTime
+		Lighting.Brightness = DefaultLighting.Brightness
+		Lighting.GlobalShadows = DefaultLighting.GlobalShadows
+		Lighting.OutdoorAmbient = DefaultLighting.OutdoorAmbient
+		RestoreFog()
+	end)
+	if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+	if FUI.SetWindowPowerSaverState then pcall(FUI.SetWindowPowerSaverState, false) end
+	pcall(function() RunService:Set3dRenderingEnabled(true) end)
+	ResetCharacterPhysicsCleanly()
+	SaveConfig(false)
+	NotifyFeatureToggle("Soft Reset (FOV, Lighting & Physics)", true)
+end
 if FUI.FinishLoader then FUI.FinishLoader() end
 MainFrame.Visible = false
 SetMenuVisible(true)
+task.delay(0.35, function()
+	if isClosingPermanently or type(savedConfig.ExecutorLibrary) ~= "table" then return end
+	for _, item in ipairs(savedConfig.ExecutorLibrary) do
+		if isClosingPermanently then break end
+		if type(item) == "table" and item.AutoRun == true and type(item.Code) == "string" and #item.Code > 0 then
+			if FUI.ExecutorBridge and FUI.ExecutorBridge.RunScript then
+				pcall(FUI.ExecutorBridge.RunScript, item.Code, "[Auto-Run] " .. tostring(item.Name or "Script"))
+			end
+			task.wait(0.15)
+		end
+	end
+end)
 genv.TRHub = { ScreenGui = ScreenGui, MainFrame = MainFrame, Tabs = Tabs, Config = Config,
 	SavedConfig = savedConfig, SaveConfig = SaveConfig, Connections = Connections,
 	CreateTab = CreateTab, CreateSectionHeader = CreateSectionHeader, CreateCard = CreateCard,
