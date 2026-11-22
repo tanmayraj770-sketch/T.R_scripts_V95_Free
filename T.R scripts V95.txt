@@ -4493,178 +4493,317 @@ do
 end
 
 do
-	local hudW = math.clamp(tonumber(Config.TelemetryHudWidth) or 248, 210, 420)
-	local hudH = math.clamp(tonumber(Config.TelemetryHudHeight) or 114, 96, 220)
+	local StatsService = game:GetService("Stats")
+	local savedW = tonumber(Config.TelemetryHudWidth) or 296
+	local savedH = tonumber(Config.TelemetryHudHeight) or 174
+	if savedW < 260 then savedW = 296 end
+	if savedH < 156 then savedH = 174 end
+	local hudW = math.clamp(savedW, 256, 460)
+	local hudH = math.clamp(savedH, 156, 260)
 	local hudLocked = (Config.TelemetryHudLocked == true)
+	local hudCompact = false
+	local hudExpandedH = hudH
+	local lastCoordsStr = "0, 0, 0"
+	local lastBadgesKey = nil
 
 	local TelemetryHud = Instance.new("Frame")
 	TelemetryHud.Name = "TR_TelemetryHUD"
 	TelemetryHud.Size = UDim2.new(0, hudW, 0, hudH)
 	TelemetryHud.Position = UDim2.new(0, 14, 1, -(hudH + 18))
-	TelemetryHud.BackgroundTransparency = 0.08
+	TelemetryHud.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	TelemetryHud.BackgroundTransparency = 0.06
 	TelemetryHud.BorderSizePixel = 0
 	TelemetryHud.Active = true
 	TelemetryHud.ClipsDescendants = true
 	TelemetryHud.Visible = (Config.TelemetryHudEnabled == true)
 	TelemetryHud.ZIndex = 60
 	TelemetryHud.Parent = ScreenGui
-	RegisterThemeObject(TelemetryHud, "BackgroundColor3", "MainBg")
-	local hudCorner = AddCorner(TelemetryHud, 12)
+	local hudCorner = AddCorner(TelemetryHud, 13)
+	local hudBgGrad = Instance.new("UIGradient", TelemetryHud)
+	hudBgGrad.Rotation = 135
 	local hudStroke = Instance.new("UIStroke", TelemetryHud)
-	hudStroke.Thickness = 1.6
-	hudStroke.Transparency = 0.20
-	RegisterThemeObject(hudStroke, "Color", "Stroke")
-	local hudGrad = Instance.new("UIGradient", TelemetryHud)
-	hudGrad.Rotation = -35
-	hudGrad.Enabled = false
+	hudStroke.Thickness = 1.8
+	hudStroke.Transparency = 0.12
+	hudStroke.Color = Color3.fromRGB(255, 255, 255)
 	local hudStrokeGrad = Instance.new("UIGradient", hudStroke)
-	hudStrokeGrad.Rotation = 35
-	hudStrokeGrad.Enabled = false
-
-	local hudTopLaser = Instance.new("Frame", TelemetryHud)
-	hudTopLaser.Size = UDim2.new(1, -16, 0, 2)
-	hudTopLaser.Position = UDim2.new(0, 8, 0, 1)
-	hudTopLaser.BorderSizePixel = 0
-	hudTopLaser.BackgroundTransparency = 0.15
-	hudTopLaser.ZIndex = 62
-	RegisterThemeObject(hudTopLaser, "BackgroundColor3", "Accent")
+	hudStrokeGrad.Rotation = 25
 
 	local hudHeader = Instance.new("Frame", TelemetryHud)
-	hudHeader.Size = UDim2.new(1, 0, 0, 26)
-	hudHeader.BackgroundTransparency = 0.22
+	hudHeader.Size = UDim2.new(1, -12, 0, 28)
+	hudHeader.Position = UDim2.new(0, 6, 0, 6)
+	hudHeader.BackgroundTransparency = 0.18
 	hudHeader.BorderSizePixel = 0
+	hudHeader.Active = true
 	hudHeader.ZIndex = 61
 	RegisterThemeObject(hudHeader, "BackgroundColor3", "PanelBg")
-	local hudTitle = MakeLabel(hudHeader, UDim2.new(1, -66, 1, 0), UDim2.new(0, 10, 0, 0), E.Bolt .. " T.R TELEMETRY HUD", Enum.Font.GothamBlack, 11, "Accent", Enum.TextXAlignment.Left)
+	AddCorner(hudHeader, 8)
+
+	local hudStatusDot = Instance.new("Frame", hudHeader)
+	hudStatusDot.Size = UDim2.new(0, 8, 0, 8)
+	hudStatusDot.Position = UDim2.new(0, 8, 0.5, -4)
+	hudStatusDot.BackgroundColor3 = Color3.fromRGB(52, 228, 134)
+	hudStatusDot.BorderSizePixel = 0
+	hudStatusDot.ZIndex = 62
+	AddCorner(hudStatusDot, 4)
+
+	local hudTitle = MakeLabel(hudHeader, UDim2.new(1, -118, 1, 0), UDim2.new(0, 21, 0, 0), E.Bolt .. " T.R TELEMETRY", Enum.Font.GothamBlack, 10, "Accent", Enum.TextXAlignment.Left)
 	hudTitle.TextTruncate = Enum.TextTruncate.AtEnd
 	hudTitle.ZIndex = 62
 
+	local hudUptimeLbl = MakeLabel(hudHeader, UDim2.new(0, 48, 1, 0), UDim2.new(1, -128, 0, 0), "00:00", Enum.Font.Code, 10, "TextSecondary", Enum.TextXAlignment.Right)
+	hudUptimeLbl.ZIndex = 62
+
+	local hudCompactBtn = Instance.new("TextButton", hudHeader)
+	hudCompactBtn.Size = UDim2.new(0, 22, 0, 20)
+	hudCompactBtn.Position = UDim2.new(1, -74, 0.5, -10)
+	hudCompactBtn.BackgroundTransparency = 0.15
+	hudCompactBtn.BorderSizePixel = 0
+	hudCompactBtn.Font = Enum.Font.GothamBold
+	hudCompactBtn.TextSize = 11
+	hudCompactBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hudCompactBtn.Text = "▾"
+	hudCompactBtn.ZIndex = 63
+	RegisterThemeObject(hudCompactBtn, "BackgroundColor3", "CardBg")
+	AddCorner(hudCompactBtn, 6)
+
 	local hudLockBtn = Instance.new("TextButton", hudHeader)
-	hudLockBtn.Size = UDim2.new(0, 24, 0, 20)
-	hudLockBtn.Position = UDim2.new(1, -54, 0.5, -10)
+	hudLockBtn.Size = UDim2.new(0, 22, 0, 20)
+	hudLockBtn.Position = UDim2.new(1, -49, 0.5, -10)
+	hudLockBtn.BackgroundTransparency = 0.15
 	hudLockBtn.BorderSizePixel = 0
 	hudLockBtn.Font = Enum.Font.GothamBold
 	hudLockBtn.TextSize = 11
-	hudLockBtn.AutoButtonColor = false
+	hudLockBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hudLockBtn.Text = hudLocked and E.Lock or E.Unlock
 	hudLockBtn.ZIndex = 63
-	AddCorner(hudLockBtn, 5)
-	local hudLockStroke = Instance.new("UIStroke", hudLockBtn)
-	hudLockStroke.Thickness = 1
+	AddCorner(hudLockBtn, 6)
 
 	local hudHideBtn = Instance.new("TextButton", hudHeader)
 	hudHideBtn.Size = UDim2.new(0, 22, 0, 20)
-	hudHideBtn.Position = UDim2.new(1, -26, 0.5, -10)
-	hudHideBtn.BackgroundColor3 = Color3.fromRGB(170, 42, 58)
+	hudHideBtn.Position = UDim2.new(1, -24, 0.5, -10)
+	hudHideBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
 	hudHideBtn.BorderSizePixel = 0
 	hudHideBtn.Font = Enum.Font.GothamBold
 	hudHideBtn.TextSize = 11
 	hudHideBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	hudHideBtn.Text = E.Close
 	hudHideBtn.ZIndex = 63
-	AddCorner(hudHideBtn, 5)
+	AddCorner(hudHideBtn, 6)
 
-	local hudStatsLbl = MakeLabel(TelemetryHud, UDim2.new(1, -18, 0, 18), UDim2.new(0, 10, 0, 31), "FPS: --   |   Ping: -- ms", Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
-	hudStatsLbl.TextTruncate = Enum.TextTruncate.AtEnd
-	hudStatsLbl.ZIndex = 62
+	local hudBody = Instance.new("Frame", TelemetryHud)
+	hudBody.Size = UDim2.new(1, -12, 1, -40)
+	hudBody.Position = UDim2.new(0, 6, 0, 38)
+	hudBody.BackgroundTransparency = 1
+	hudBody.BorderSizePixel = 0
+	hudBody.ZIndex = 61
 
-	local hudCoordsLbl = MakeLabel(TelemetryHud, UDim2.new(1, -18, 0, 16), UDim2.new(0, 10, 0, 51), "XYZ: 0, 0, 0", Enum.Font.Code, 11, "TextSecondary", Enum.TextXAlignment.Left)
-	hudCoordsLbl.TextTruncate = Enum.TextTruncate.AtEnd
-	hudCoordsLbl.ZIndex = 62
+	local fpsCard = Instance.new("Frame", hudBody)
+	fpsCard.Size = UDim2.new(0.5, -3, 0, 56)
+	fpsCard.Position = UDim2.new(0, 0, 0, 0)
+	fpsCard.BackgroundTransparency = 0.20
+	fpsCard.BorderSizePixel = 0
+	fpsCard.ZIndex = 62
+	RegisterThemeObject(fpsCard, "BackgroundColor3", "PanelBg")
+	AddCorner(fpsCard, 8)
+	local fpsCardStroke = Instance.new("UIStroke", fpsCard)
+	fpsCardStroke.Thickness = 1
+	fpsCardStroke.Transparency = 0.65
+	RegisterThemeObject(fpsCardStroke, "Color", "Stroke")
 
-	local hudBadgesLbl = MakeLabel(TelemetryHud, UDim2.new(1, -24, 1, -74), UDim2.new(0, 10, 0, 70), "Active: Idle", Enum.Font.GothamSemibold, 10, "Accent", Enum.TextXAlignment.Left)
-	hudBadgesLbl.TextWrapped = true
-	hudBadgesLbl.TextYAlignment = Enum.TextYAlignment.Top
-	hudBadgesLbl.ZIndex = 62
+	local fpsTitleLbl = MakeLabel(fpsCard, UDim2.new(0, 40, 0, 14), UDim2.new(0, 7, 0, 4), "FPS", Enum.Font.GothamBold, 9, "TextSecondary", Enum.TextXAlignment.Left)
+	fpsTitleLbl.ZIndex = 63
+	local fpsValLbl = MakeLabel(fpsCard, UDim2.new(1, -50, 0, 20), UDim2.new(0, 44, 0, 2), "60", Enum.Font.GothamBlack, 15, "TextPrimary", Enum.TextXAlignment.Right)
+	fpsValLbl.ZIndex = 63
 
-	local hudResizeGrip = Instance.new("TextButton", TelemetryHud)
-	hudResizeGrip.Size = UDim2.new(0, 18, 0, 18)
-	hudResizeGrip.Position = UDim2.new(1, -18, 1, -18)
-	hudResizeGrip.BackgroundTransparency = 1
-	hudResizeGrip.Font = Enum.Font.GothamBold
-	hudResizeGrip.TextSize = 12
-	hudResizeGrip.Text = E.Grip
-	hudResizeGrip.ZIndex = 64
-	RegisterThemeObject(hudResizeGrip, "TextColor3", "Accent")
-
-	local function SyncTelemetryLockVisual()
-		local eff = GetTheme()
-		local lockCol = Color3.fromRGB(245, 166, 35)
-		hudLockBtn.Text = hudLocked and utf8.char(0x1F512) or utf8.char(0x1F513)
-		hudLockBtn.BackgroundColor3 = hudLocked and eff.PanelBg:Lerp(lockCol, 0.35) or eff.CardBg
-		hudLockBtn.TextColor3 = hudLocked and Color3.fromRGB(255, 224, 120) or eff.Accent
-		hudLockStroke.Color = hudLocked and lockCol or eff.Stroke
-		hudLockStroke.Transparency = hudLocked and 0.15 or 0.45
-		hudResizeGrip.Visible = not hudLocked
+	local sparkHolder = Instance.new("Frame", fpsCard)
+	sparkHolder.Size = UDim2.new(1, -12, 0, 24)
+	sparkHolder.Position = UDim2.new(0, 6, 1, -28)
+	sparkHolder.BackgroundTransparency = 1
+	sparkHolder.ClipsDescendants = true
+	sparkHolder.ZIndex = 63
+	local sparkBars = {}
+	local sparkHistory = {}
+	local SPARK_COUNT = 16
+	for si = 1, SPARK_COUNT do
+		sparkHistory[si] = 60
+		local bar = Instance.new("Frame", sparkHolder)
+		bar.AnchorPoint = Vector2.new(0, 1)
+		bar.Size = UDim2.new(1 / SPARK_COUNT, -2, 0.85, 0)
+		bar.Position = UDim2.new((si - 1) / SPARK_COUNT, 1, 1, 0)
+		bar.BackgroundColor3 = Color3.fromRGB(52, 228, 134)
+		bar.BackgroundTransparency = 0.12
+		bar.BorderSizePixel = 0
+		bar.ZIndex = 64
+		AddCorner(bar, 2)
+		sparkBars[si] = bar
 	end
 
-	FUI.ApplyTelemetryHudStyle = function()
-		if not TelemetryHud or not TelemetryHud.Parent then return end
-		local d = Config.GuiDesign or "Default"
-		local eff = GetTheme()
-		TelemetryHud.BackgroundColor3 = eff.MainBg
-		hudHeader.BackgroundColor3 = eff.PanelBg
-		hudTitle.TextColor3 = eff.Accent
-		hudStatsLbl.TextColor3 = eff.TextPrimary
-		hudCoordsLbl.TextColor3 = eff.TextSecondary
-		hudBadgesLbl.TextColor3 = eff.Accent
-		hudResizeGrip.TextColor3 = eff.Accent
-		hudTopLaser.BackgroundColor3 = eff.Accent
-		if d == "LiquidGlass" then
-			TelemetryHud.BackgroundTransparency = 0.46
-			hudHeader.BackgroundTransparency = 0.56
-			hudCorner.CornerRadius = UDim.new(0, 15)
-			hudStroke.Thickness = 1.8
-			hudStroke.Transparency = 0.08
-			hudStroke.Color = Color3.fromRGB(255, 255, 255)
-			hudGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, eff.MainBg:Lerp(Color3.fromRGB(255, 255, 255), 0.34)),
-				ColorSequenceKeypoint.new(0.5, eff.MainBg),
-				ColorSequenceKeypoint.new(1, eff.MainBg:Lerp(Color3.fromRGB(210, 234, 255), 0.26))
-			})
-			hudGrad.Enabled = true
-			hudStrokeGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-				ColorSequenceKeypoint.new(0.45, eff.Stroke),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
-			})
-			hudStrokeGrad.Enabled = true
-		elseif d == "CyberHud" then
-			TelemetryHud.BackgroundTransparency = 0.05
-			hudHeader.BackgroundTransparency = 0.10
-			hudCorner.CornerRadius = UDim.new(0, 7)
-			hudStroke.Thickness = 2.4
-			hudStroke.Transparency = 0.0
-			hudStroke.Color = Color3.fromRGB(255, 255, 255)
-			hudGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 14, 30):Lerp(eff.Accent, 0.22)),
-				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(4, 5, 11)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 8, 32):Lerp(eff.Stroke, 0.24))
-			})
-			hudGrad.Enabled = true
-			hudStrokeGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, eff.Accent),
-				ColorSequenceKeypoint.new(0.5, eff.Stroke),
-				ColorSequenceKeypoint.new(1, eff.Accent)
-			})
-			hudStrokeGrad.Enabled = true
-		else
-			TelemetryHud.BackgroundTransparency = 0.08
-			hudHeader.BackgroundTransparency = 0.22
-			hudCorner.CornerRadius = UDim.new(0, 12)
-			hudStroke.Thickness = 1.6
-			hudStroke.Transparency = 0.22
-			hudStroke.Color = eff.Stroke
-			hudGrad.Enabled = false
-			hudStrokeGrad.Enabled = false
+	local netCard = Instance.new("Frame", hudBody)
+	netCard.Size = UDim2.new(0.5, -3, 0, 56)
+	netCard.Position = UDim2.new(0.5, 3, 0, 0)
+	netCard.BackgroundTransparency = 0.20
+	netCard.BorderSizePixel = 0
+	netCard.ZIndex = 62
+	RegisterThemeObject(netCard, "BackgroundColor3", "PanelBg")
+	AddCorner(netCard, 8)
+	local netCardStroke = Instance.new("UIStroke", netCard)
+	netCardStroke.Thickness = 1
+	netCardStroke.Transparency = 0.65
+	RegisterThemeObject(netCardStroke, "Color", "Stroke")
+
+	local pingTitleLbl = MakeLabel(netCard, UDim2.new(0, 42, 0, 14), UDim2.new(0, 7, 0, 4), "PING", Enum.Font.GothamBold, 9, "TextSecondary", Enum.TextXAlignment.Left)
+	pingTitleLbl.ZIndex = 63
+	local pingValLbl = MakeLabel(netCard, UDim2.new(1, -48, 0, 20), UDim2.new(0, 42, 0, 2), "0 ms", Enum.Font.GothamBlack, 13, "TextPrimary", Enum.TextXAlignment.Right)
+	pingValLbl.ZIndex = 63
+
+	local memLbl = MakeLabel(netCard, UDim2.new(1, -14, 0, 14), UDim2.new(0, 7, 0, 24), "MEM: -- MB", Enum.Font.Code, 10, "TextSecondary", Enum.TextXAlignment.Left)
+	memLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	memLbl.ZIndex = 63
+	local plrLbl = MakeLabel(netCard, UDim2.new(1, -14, 0, 14), UDim2.new(0, 7, 0, 39), "PLR: 1  |  SPD: 0", Enum.Font.Code, 10, "Accent", Enum.TextXAlignment.Left)
+	plrLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	plrLbl.ZIndex = 63
+
+	local posStrip = Instance.new("Frame", hudBody)
+	posStrip.Size = UDim2.new(1, 0, 0, 26)
+	posStrip.Position = UDim2.new(0, 0, 0, 62)
+	posStrip.BackgroundTransparency = 0.22
+	posStrip.BorderSizePixel = 0
+	posStrip.ZIndex = 62
+	RegisterThemeObject(posStrip, "BackgroundColor3", "PanelBg")
+	AddCorner(posStrip, 7)
+
+	local hudCoordsLbl = MakeLabel(posStrip, UDim2.new(1, -36, 1, 0), UDim2.new(0, 8, 0, 0), "XYZ: --, --, --", Enum.Font.Code, 10, "TextPrimary", Enum.TextXAlignment.Left)
+	hudCoordsLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	hudCoordsLbl.ZIndex = 63
+
+	local hudCopyPosBtn = Instance.new("TextButton", posStrip)
+	hudCopyPosBtn.Size = UDim2.new(0, 24, 0, 18)
+	hudCopyPosBtn.Position = UDim2.new(1, -28, 0.5, -9)
+	hudCopyPosBtn.BackgroundTransparency = 0.12
+	hudCopyPosBtn.BorderSizePixel = 0
+	hudCopyPosBtn.Font = Enum.Font.GothamBold
+	hudCopyPosBtn.TextSize = 10
+	hudCopyPosBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	hudCopyPosBtn.Text = E.Clip
+	hudCopyPosBtn.ZIndex = 64
+	RegisterThemeObject(hudCopyPosBtn, "BackgroundColor3", "Accent")
+	AddCorner(hudCopyPosBtn, 5)
+	hudCopyPosBtn.MouseButton1Click:Connect(function()
+		SafeClipboard(lastCoordsStr)
+		hudCopyPosBtn.Text = E.Check
+		task.delay(0.9, function()
+			if hudCopyPosBtn and hudCopyPosBtn.Parent then hudCopyPosBtn.Text = E.Clip end
+		end)
+	end)
+
+	local badgesHolder = Instance.new("Frame", hudBody)
+	badgesHolder.Size = UDim2.new(1, -18, 0, 24)
+	badgesHolder.Position = UDim2.new(0, 0, 0, 94)
+	badgesHolder.BackgroundTransparency = 1
+	badgesHolder.ClipsDescendants = true
+	badgesHolder.ZIndex = 62
+	local badgesLayout = Instance.new("UIListLayout", badgesHolder)
+	badgesLayout.FillDirection = Enum.FillDirection.Horizontal
+	badgesLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	badgesLayout.Padding = UDim.new(0, 4)
+
+	local hudResizeHandle = Instance.new("TextButton", TelemetryHud)
+	hudResizeHandle.Size = UDim2.new(0, 16, 0, 16)
+	hudResizeHandle.Position = UDim2.new(1, -17, 1, -17)
+	hudResizeHandle.BackgroundTransparency = 1
+	hudResizeHandle.BorderSizePixel = 0
+	hudResizeHandle.Text = "◢"
+	hudResizeHandle.Font = Enum.Font.GothamBold
+	hudResizeHandle.TextSize = 11
+	hudResizeHandle.ZIndex = 65
+	RegisterThemeObject(hudResizeHandle, "TextColor3", "Accent")
+
+	local function RebuildTelemetryBadges(badgesText)
+		local key = tostring(badgesText or "")
+		if key == lastBadgesKey then return end
+		lastBadgesKey = key
+		for _, ch in ipairs(badgesHolder:GetChildren()) do
+			if ch:IsA("TextLabel") then ch:Destroy() end
 		end
+		local th = GetTheme()
+		if key == "" then
+			local idlePill = Instance.new("TextLabel", badgesHolder)
+			idlePill.Size = UDim2.new(0, 52, 0, 18)
+			idlePill.BackgroundColor3 = th.PanelBg
+			idlePill.BackgroundTransparency = 0.25
+			idlePill.BorderSizePixel = 0
+			idlePill.Font = Enum.Font.GothamBold
+			idlePill.TextSize = 9
+			idlePill.TextColor3 = th.TextSecondary
+			idlePill.Text = "IDLE"
+			idlePill.ZIndex = 63
+			AddCorner(idlePill, 9)
+			return
+		end
+		for token in string.gmatch(key, "[^|]+") do
+			local trimmed = token:gsub("^%s+", ""):gsub("%s+$", "")
+			if trimmed ~= "" then
+				local pill = Instance.new("TextLabel", badgesHolder)
+				pill.Size = UDim2.new(0, math.max(38, (#trimmed * 7) + 14), 0, 18)
+				pill.BackgroundColor3 = th.Accent
+				pill.BackgroundTransparency = 0.14
+				pill.BorderSizePixel = 0
+				pill.Font = Enum.Font.GothamBlack
+				pill.TextSize = 9
+				pill.TextColor3 = Color3.fromRGB(255, 255, 255)
+				pill.Text = trimmed
+				pill.ZIndex = 63
+				AddCorner(pill, 9)
+			end
+		end
+	end
+
+	local function SyncTelemetryLockVisual()
+		local th = GetTheme()
+		hudLockBtn.Text = hudLocked and E.Lock or E.Unlock
+		hudLockBtn.BackgroundColor3 = hudLocked and th.Accent or th.CardBg
+		hudResizeHandle.Visible = (not hudLocked) and (not hudCompact)
+	end
+
+	FUI.ApplyTelemetryHudStyle = function(activeTh)
+		local th = activeTh or GetTheme()
+		local d = Config.GuiDesign or "Default"
+		TelemetryHud.BackgroundTransparency = (d == "LiquidGlass" and 0.28) or (d == "CyberHud" and 0.04) or 0.06
+		hudBgGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, th.MainBg:Lerp(th.Accent, 0.12)),
+			ColorSequenceKeypoint.new(0.55, th.MainBg),
+			ColorSequenceKeypoint.new(1, th.MainBg:Lerp(th.Stroke, 0.14))
+		})
+		hudStrokeGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, th.Accent),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(1, th.Stroke)
+		})
+		hudCorner.CornerRadius = UDim.new(0, (d == "LiquidGlass" and 16) or (d == "CyberHud" and 6) or 13)
+		hudStroke.Thickness = (d == "CyberHud" and 2.1) or 1.7
+		hudHeader.BackgroundTransparency = (d == "LiquidGlass" and 0.42) or 0.18
+		lastBadgesKey = nil
 		SyncTelemetryLockVisual()
 	end
 	table.insert(ThemeObjects.CustomCallbacks, FUI.ApplyTelemetryHudStyle)
 
-	local hudDragging, hudResizing = false, false
-	local hudDragStart, hudStartPos, hudResizeStart, hudStartSize = nil, nil, nil, nil
-	TelemetryHud.InputBegan:Connect(function(inp)
-		if hudLocked or hudResizing then return end
+	hudCompactBtn.MouseButton1Click:Connect(function()
+		hudCompact = not hudCompact
+		hudCompactBtn.Text = hudCompact and "▴" or "▾"
+		hudBody.Visible = not hudCompact
+		hudResizeHandle.Visible = (not hudLocked) and (not hudCompact)
+		if not hudCompact then
+			hudTitle.Text = E.Bolt .. " T.R TELEMETRY"
+		end
+		FUI.SafeTween(TelemetryHud, FUI.TI.TabPage, {
+			Size = UDim2.new(0, TelemetryHud.AbsoluteSize.X, 0, hudCompact and 40 or hudExpandedH)
+		})
+	end)
+
+	local hudDragging, hudDragStart, hudStartPos = false, nil, nil
+	local hudResizing, hudResizeStart, hudStartSize = false, nil, nil
+	hudHeader.InputBegan:Connect(function(inp)
+		if hudLocked then return end
 		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
 			hudDragging = true
 			hudDragStart = inp.Position
@@ -4674,18 +4813,18 @@ do
 			end)
 		end
 	end)
-	hudResizeGrip.InputBegan:Connect(function(inp)
-		if hudLocked then return end
+	hudResizeHandle.InputBegan:Connect(function(inp)
+		if hudLocked or hudCompact then return end
 		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-			hudDragging = false
 			hudResizing = true
 			hudResizeStart = inp.Position
-			hudStartSize = Vector2.new(TelemetryHud.AbsoluteSize.X, TelemetryHud.AbsoluteSize.Y)
+			hudStartSize = TelemetryHud.AbsoluteSize
 			inp.Changed:Connect(function()
 				if inp.UserInputState == Enum.UserInputState.End then
 					hudResizing = false
 					Config.TelemetryHudWidth = math.floor(TelemetryHud.AbsoluteSize.X + 0.5)
 					Config.TelemetryHudHeight = math.floor(TelemetryHud.AbsoluteSize.Y + 0.5)
+					hudExpandedH = Config.TelemetryHudHeight
 					savedConfig.Settings.TelemetryHudWidth = Config.TelemetryHudWidth
 					savedConfig.Settings.TelemetryHudHeight = Config.TelemetryHudHeight
 					SaveConfig(false)
@@ -4698,8 +4837,9 @@ do
 		if hudLocked then hudDragging = false hudResizing = false return end
 		if hudResizing and hudResizeStart and hudStartSize then
 			local d = inp.Position - hudResizeStart
-			local nw = math.clamp(math.floor(hudStartSize.X + d.X + 0.5), 210, 420)
-			local nh = math.clamp(math.floor(hudStartSize.Y + d.Y + 0.5), 96, 220)
+			local nw = math.clamp(math.floor(hudStartSize.X + d.X + 0.5), 256, 460)
+			local nh = math.clamp(math.floor(hudStartSize.Y + d.Y + 0.5), 156, 260)
+			hudExpandedH = nh
 			TelemetryHud.Size = UDim2.new(0, nw, 0, nh)
 		elseif hudDragging and hudDragStart and hudStartPos then
 			local d = inp.Position - hudDragStart
@@ -4749,15 +4889,59 @@ do
 
 	FUI.TelemetryHudFrame = TelemetryHud
 	FUI.UpdateTelemetryHud = function(fpsVal, pingMs, rootPart, badgesText)
-		if not TelemetryHud or not TelemetryHud.Visible or isClosingPermanently then return end
-		hudStatsLbl.Text = string.format("FPS: %d   |   Ping: %d ms", fpsVal or 0, pingMs or 0)
+		if not TelemetryHud or not TelemetryHud.Visible or isClosingPermanently or FUI.IsWindowUnfocused then return end
+		local fpsNum = tonumber(fpsVal) or 0
+		local pingNum = tonumber(pingMs) or 0
+		local fpsCol = (fpsNum >= 50 and Color3.fromRGB(52, 228, 134))
+			or (fpsNum >= 30 and Color3.fromRGB(255, 198, 66))
+			or Color3.fromRGB(245, 82, 92)
+		local pingCol = (pingNum <= 85 and Color3.fromRGB(52, 228, 134))
+			or (pingNum <= 160 and Color3.fromRGB(255, 198, 66))
+			or Color3.fromRGB(245, 82, 92)
+		hudStatusDot.BackgroundColor3 = fpsCol
+
+		local elapsed = math.max(0, math.floor(os.clock() - (FUI.SessionStartClock or os.clock())))
+		local mins = math.floor(elapsed / 60)
+		local secs = elapsed % 60
+		hudUptimeLbl.Text = string.format("%02d:%02d", mins, secs)
+
+		local spd = 0
 		if rootPart then
 			local p = rootPart.Position
-			hudCoordsLbl.Text = string.format("XYZ: %.0f, %.0f, %.0f", p.X, p.Y, p.Z)
+			lastCoordsStr = string.format("%.0f, %.0f, %.0f", p.X, p.Y, p.Z)
+			hudCoordsLbl.Text = "XYZ: " .. lastCoordsStr
+			local okV, vel = pcall(function() return rootPart.AssemblyLinearVelocity end)
+			if okV and vel then spd = math.floor(vel.Magnitude + 0.5) end
 		else
 			hudCoordsLbl.Text = "XYZ: --, --, --"
 		end
-		hudBadgesLbl.Text = "Active: " .. ((badgesText and badgesText ~= "") and badgesText or "Idle")
+
+		if hudCompact then
+			hudTitle.Text = string.format("%s %d FPS | %d ms | %d s/s", E.Bolt, fpsNum, pingNum, spd)
+			return
+		end
+
+		fpsValLbl.Text = tostring(fpsNum)
+		fpsValLbl.TextColor3 = fpsCol
+		pingValLbl.Text = string.format("%d ms", pingNum)
+		pingValLbl.TextColor3 = pingCol
+
+		table.remove(sparkHistory, 1)
+		table.insert(sparkHistory, fpsNum)
+		for si = 1, SPARK_COUNT do
+			local v = sparkHistory[si] or 0
+			local ratio = math.clamp(v / 60, 0.14, 1.0)
+			local bar = sparkBars[si]
+			bar.Size = UDim2.new(1 / SPARK_COUNT, -2, ratio, 0)
+			bar.BackgroundColor3 = (v >= 50 and Color3.fromRGB(52, 228, 134))
+				or (v >= 30 and Color3.fromRGB(255, 198, 66))
+				or Color3.fromRGB(245, 82, 92)
+		end
+
+		local okMem, memMb = pcall(function() return StatsService:GetTotalMemoryUsageMb() end)
+		memLbl.Text = (okMem and type(memMb) == "number") and string.format("MEM: %.0f MB", memMb) or "MEM: -- MB"
+		plrLbl.Text = string.format("PLR: %d/%d | SPD: %d", #Players:GetPlayers(), Players.MaxPlayers or 0, spd)
+		RebuildTelemetryBadges(badgesText)
 	end
 	FUI.ApplyTelemetryHudStyle()
 end
