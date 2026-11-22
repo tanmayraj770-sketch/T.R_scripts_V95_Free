@@ -1216,24 +1216,26 @@ local MainStroke = Instance.new("UIStroke") MainStroke.Thickness = 1.6 MainStrok
 MainStroke.Parent = MainFrame RegisterThemeObject(MainStroke, "Color", "Stroke")
 FUI.MainTopBlackBorder = Instance.new("Frame")
 FUI.MainTopBlackBorder.Name = "TR_TopBlackBorder"
-FUI.MainTopBlackBorder.Size = UDim2.new(1, 0, 0, 4)
-FUI.MainTopBlackBorder.Position = UDim2.new(0, 0, 0, 0)
+FUI.MainTopBlackBorder.Size = UDim2.new(1, -28, 0, 4)
+FUI.MainTopBlackBorder.Position = UDim2.new(0, 14, 0, 0)
 FUI.MainTopBlackBorder.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 FUI.MainTopBlackBorder.BackgroundTransparency = 0
 FUI.MainTopBlackBorder.BorderSizePixel = 0
 FUI.MainTopBlackBorder.Active = false
 FUI.MainTopBlackBorder.ZIndex = 9
 FUI.MainTopBlackBorder.Parent = MainFrame
+AddCorner(FUI.MainTopBlackBorder, 2)
 FUI.MainBottomBlackBorder = Instance.new("Frame")
 FUI.MainBottomBlackBorder.Name = "TR_BottomBlackBorder"
-FUI.MainBottomBlackBorder.Size = UDim2.new(1, 0, 0, 4)
-FUI.MainBottomBlackBorder.Position = UDim2.new(0, 0, 1, -4)
+FUI.MainBottomBlackBorder.Size = UDim2.new(1, -28, 0, 4)
+FUI.MainBottomBlackBorder.Position = UDim2.new(0, 14, 1, -4)
 FUI.MainBottomBlackBorder.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 FUI.MainBottomBlackBorder.BackgroundTransparency = 0
 FUI.MainBottomBlackBorder.BorderSizePixel = 0
 FUI.MainBottomBlackBorder.Active = false
 FUI.MainBottomBlackBorder.ZIndex = 9
 FUI.MainBottomBlackBorder.Parent = MainFrame
+AddCorner(FUI.MainBottomBlackBorder, 2)
 local TopBar = Instance.new("Frame") TopBar.Name = "TopBar" TopBar.Size = UDim2.new(1, 0, 0, 44)
 TopBar.BackgroundTransparency = 0.1 TopBar.BorderSizePixel = 0 TopBar.Parent = MainFrame
 RegisterThemeObject(TopBar, "BackgroundColor3", "PanelBg") AddCorner(TopBar, 12)
@@ -3254,7 +3256,13 @@ local function CreateTab(tabName, iconText, order)
 	TabBtn.BackgroundColor3 = isFirst and initTh.Accent or initTh.CardBg
 	TabBtn.BackgroundTransparency = isFirst and 0.02 or 0.2
 	TabBtn.Font = Enum.Font.GothamBold TabBtn.TextSize = 12 TabBtn.ZIndex = 6
-	TabBtn.TextXAlignment = Enum.TextXAlignment.Left TabBtn.Text = "    " .. iconText .. "  " .. tabName
+	TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+	if tabName == "Favorite" then
+		TabBtn.RichText = true
+		TabBtn.Text = '    <font color="#FFD43B">★</font>  Favorite'
+	else
+		TabBtn.Text = "    " .. iconText .. "  " .. tabName
+	end
 	TabBtn.Parent = Sidebar RegisterThemeObject(TabBtn, "TextColor3", "TextPrimary") AddCorner(TabBtn, 8)
 	FUI.AttachSpringAndRipple(TabBtn)
 	local Ind = Instance.new("Frame", TabBtn)
@@ -3862,14 +3870,15 @@ local Tab5_Flight    = CreateTab("Flight & Movement", E.Rocket, 6)
 local Tab6_Instant   = CreateTab("Target Fling", E.Bolt, 7)
 local Tab7_Visuals   = CreateTab("Aimbot & Visuals", E.Target, 8)
 local Tab8_Executor  = CreateTab("Script Executor", E.Laptop, 9)
-local Tab11_Library  = CreateTab("Saved Scripts", E.Clip, 10)
-local Tab9_Detector  = CreateTab("Hacker Detector", E.Search, 11)
-local Tab10_Avatar   = CreateTab("Avatar Changer", E.Crown, 12)
+local Tab9_Detector  = CreateTab("Hacker Detector", E.Search, 10)
+local Tab10_Avatar   = CreateTab("Avatar Changer", E.Crown, 11)
 
 do
-	CreateSectionHeader(Tab0_Favorite, "Favorite Functions (Click " .. STAR_EMPTY .. " on any toggle across tabs to pin here)", 1)
+	local favHdr = CreateSectionHeader(Tab0_Favorite, 'Favorite Functions (Click <font color="#FFD43B">★</font> on any toggle across tabs to pin here)', 1)
+	favHdr.RichText = true
 	local FavTopCard = CreateCard(Tab0_Favorite, 44, 2)
-	local FavCountLbl = MakeLabel(FavTopCard, UDim2.new(0.62, -14, 1, 0), UDim2.new(0, 12, 0, 0), STAR_FILLED .. " Pinned Favorites: 0", Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+	local FavCountLbl = MakeLabel(FavTopCard, UDim2.new(0.62, -14, 1, 0), UDim2.new(0, 12, 0, 0), '<font color="#FFD43B">★</font> Pinned Favorites: 0', Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+	FavCountLbl.RichText = true
 	local ClearFavsBtn = MakeButton(FavTopCard, UDim2.new(0.38, -12, 0, 28), UDim2.new(0.62, 2, 0.5, -14), E.Trash .. " Clear Favorites", "AccentDark", 11)
 	local FavListContainer = Instance.new("Frame", Tab0_Favorite)
 	FavListContainer.LayoutOrder = 3
@@ -3937,7 +3946,7 @@ do
 				end
 			end
 		end
-		FavCountLbl.Text = STAR_FILLED .. " Pinned Favorites: " .. tostring(count)
+		FavCountLbl.Text = '<font color="#FFD43B">★</font> Pinned Favorites: ' .. tostring(count)
 		if count == 0 then
 			local emptyLbl = MakeLabel(FavListContainer, UDim2.new(1, -12, 0, 42), nil, "No favorite functions pinned yet! Go to any tab and click the small " .. STAR_EMPTY .. " star next to any toggle to pin it here.", Enum.Font.GothamSemibold, 11, "TextSecondary", Enum.TextXAlignment.Center)
 			emptyLbl.TextWrapped = true
@@ -4920,48 +4929,92 @@ do
 		SaveConfig(false)
 	end)
 
+	local WHEEL_SIZE = 364
+	local HALF_WHEEL = 182
+	local SLOT_RADIUS = 128
+
 	local WheelRoot = Instance.new("Frame")
 	WheelRoot.Name = "TR_RadialWheel"
 	WheelRoot.AnchorPoint = Vector2.new(0.5, 0.5)
-	WheelRoot.Size = UDim2.new(0, 310, 0, 310)
+	WheelRoot.Size = UDim2.new(0, WHEEL_SIZE, 0, WHEEL_SIZE)
 	WheelRoot.Position = UDim2.new(0.5, 0, 0.5, 0)
-	WheelRoot.BackgroundColor3 = GetTheme().MainBg
-	WheelRoot.BackgroundTransparency = 0.22
+	WheelRoot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	WheelRoot.BackgroundTransparency = 0.14
 	WheelRoot.BorderSizePixel = 0
 	WheelRoot.Visible = false
 	WheelRoot.ZIndex = 110
 	WheelRoot.Parent = ScreenGui
-	AddCorner(WheelRoot, 155)
+	AddCorner(WheelRoot, HALF_WHEEL)
 	local WheelScale = Instance.new("UIScale", WheelRoot)
 	WheelScale.Scale = 0.78
+	local WheelBgGrad = Instance.new("UIGradient", WheelRoot)
+	WheelBgGrad.Rotation = 135
 	local WheelStroke = Instance.new("UIStroke", WheelRoot)
-	WheelStroke.Thickness = 2.0
-	WheelStroke.Transparency = 0.14
+	WheelStroke.Thickness = 2.6
+	WheelStroke.Transparency = 0.06
 	WheelStroke.Color = Color3.fromRGB(255, 255, 255)
 	local WheelStrokeGrad = Instance.new("UIGradient", WheelStroke)
 	WheelStrokeGrad.Rotation = 35
 
+	local OrbitRing = Instance.new("Frame", WheelRoot)
+	OrbitRing.AnchorPoint = Vector2.new(0.5, 0.5)
+	OrbitRing.Size = UDim2.new(0, 256, 0, 256)
+	OrbitRing.Position = UDim2.new(0.5, 0, 0.5, 0)
+	OrbitRing.BackgroundTransparency = 1
+	OrbitRing.BorderSizePixel = 0
+	OrbitRing.ZIndex = 111
+	AddCorner(OrbitRing, 128)
+	local OrbitStroke = Instance.new("UIStroke", OrbitRing)
+	OrbitStroke.Thickness = 1.4
+	OrbitStroke.Transparency = 0.52
+	OrbitStroke.Color = GetTheme().Accent
+
+	local CenterAura = Instance.new("Frame", WheelRoot)
+	CenterAura.AnchorPoint = Vector2.new(0.5, 0.5)
+	CenterAura.Size = UDim2.new(0, 122, 0, 122)
+	CenterAura.Position = UDim2.new(0.5, 0, 0.5, 0)
+	CenterAura.BackgroundTransparency = 1
+	CenterAura.BorderSizePixel = 0
+	CenterAura.ZIndex = 113
+	AddCorner(CenterAura, 61)
+	local CenterAuraStroke = Instance.new("UIStroke", CenterAura)
+	CenterAuraStroke.Thickness = 1.6
+	CenterAuraStroke.Transparency = 0.45
+	CenterAuraStroke.Color = GetTheme().Accent
+
 	local CenterCore = Instance.new("TextButton", WheelRoot)
 	CenterCore.AnchorPoint = Vector2.new(0.5, 0.5)
-	CenterCore.Size = UDim2.new(0, 102, 0, 102)
+	CenterCore.Size = UDim2.new(0, 108, 0, 108)
 	CenterCore.Position = UDim2.new(0.5, 0, 0.5, 0)
-	CenterCore.BackgroundColor3 = GetTheme().CardBg
-	CenterCore.BackgroundTransparency = 0.06
+	CenterCore.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	CenterCore.BackgroundTransparency = 0.04
 	CenterCore.BorderSizePixel = 0
 	CenterCore.Text = ""
 	CenterCore.AutoButtonColor = false
 	CenterCore.ZIndex = 114
+	AddCorner(CenterCore, 54)
+	local CenterBgGrad = Instance.new("UIGradient", CenterCore)
+	CenterBgGrad.Rotation = 135
+	local CenterStroke = Instance.new("UIStroke", CenterCore)
+	CenterStroke.Thickness = 2.0
+	CenterStroke.Color = GetTheme().Accent
 	CenterCore.MouseButton1Click:Connect(function()
 		if FUI.CloseRadialWheel then FUI.CloseRadialWheel(false) end
 	end)
-	AddCorner(CenterCore, 51)
-	local CenterStroke = Instance.new("UIStroke", CenterCore)
-	CenterStroke.Thickness = 1.6
-	CenterStroke.Color = GetTheme().Accent
+
+	local CenterStar = Instance.new("TextLabel", CenterCore)
+	CenterStar.Size = UDim2.new(1, 0, 0, 16)
+	CenterStar.Position = UDim2.new(0, 0, 0, 10)
+	CenterStar.BackgroundTransparency = 1
+	CenterStar.Font = Enum.Font.GothamBlack
+	CenterStar.TextSize = 13
+	CenterStar.TextColor3 = Color3.fromRGB(255, 212, 59)
+	CenterStar.Text = "★"
+	CenterStar.ZIndex = 115
 
 	local CenterTitle = Instance.new("TextLabel", CenterCore)
 	CenterTitle.Size = UDim2.new(1, -14, 0, 34)
-	CenterTitle.Position = UDim2.new(0, 7, 0, 22)
+	CenterTitle.Position = UDim2.new(0, 7, 0, 26)
 	CenterTitle.BackgroundTransparency = 1
 	CenterTitle.Font = Enum.Font.GothamBold
 	CenterTitle.TextSize = 11
@@ -4971,15 +5024,19 @@ do
 	CenterTitle.Text = "Quick Wheel"
 	CenterTitle.ZIndex = 115
 
-	local CenterSub = Instance.new("TextLabel", CenterCore)
-	CenterSub.Size = UDim2.new(1, -14, 0, 18)
-	CenterSub.Position = UDim2.new(0, 7, 0, 62)
-	CenterSub.BackgroundTransparency = 1
-	CenterSub.Font = Enum.Font.GothamBlack
-	CenterSub.TextSize = 10
-	CenterSub.TextColor3 = GetTheme().Accent
-	CenterSub.Text = "TOP 8 FAVS"
-	CenterSub.ZIndex = 115
+	local CenterPill = Instance.new("TextLabel", CenterCore)
+	CenterPill.AnchorPoint = Vector2.new(0.5, 0)
+	CenterPill.Size = UDim2.new(0, 80, 0, 18)
+	CenterPill.Position = UDim2.new(0.5, 0, 0, 68)
+	CenterPill.BackgroundColor3 = GetTheme().Accent
+	CenterPill.BackgroundTransparency = 0.15
+	CenterPill.BorderSizePixel = 0
+	CenterPill.Font = Enum.Font.GothamBlack
+	CenterPill.TextSize = 9
+	CenterPill.TextColor3 = Color3.fromRGB(255, 255, 255)
+	CenterPill.Text = "TOP 8 FAVS"
+	CenterPill.ZIndex = 115
+	AddCorner(CenterPill, 9)
 
 	local wheelSlots = {}
 	local wheelItems = {}
@@ -4987,7 +5044,6 @@ do
 	local radialOpen = false
 	local wheelCenterPos = Vector2.new(0, 0)
 	local radialMoveConn = nil
-	local SLOT_RADIUS = 108
 
 	for i = 1, 8 do
 		local angle = ((i - 1) * (math.pi / 4)) - (math.pi / 2)
@@ -4995,7 +5051,7 @@ do
 		local oy = math.floor(math.sin(angle) * SLOT_RADIUS + 0.5)
 		local node = Instance.new("TextButton", WheelRoot)
 		node.AnchorPoint = Vector2.new(0.5, 0.5)
-		node.Size = UDim2.new(0, 88, 0, 40)
+		node.Size = UDim2.new(0, 96, 0, 42)
 		node.Position = UDim2.new(0.5, ox, 0.5, oy)
 		node.BackgroundColor3 = GetTheme().PanelBg
 		node.BackgroundTransparency = 0.08
@@ -5003,22 +5059,38 @@ do
 		node.Text = ""
 		node.AutoButtonColor = false
 		node.ZIndex = 112
-		AddCorner(node, 10)
+		AddCorner(node, 11)
 		local nScale = Instance.new("UIScale", node)
 		nScale.Scale = 1.0
 		local nStroke = Instance.new("UIStroke", node)
-		nStroke.Thickness = 1.3
+		nStroke.Thickness = 1.4
+		nStroke.Transparency = 0.25
 		nStroke.Color = GetTheme().Stroke
+
+		local numBadge = Instance.new("TextLabel", node)
+		numBadge.Size = UDim2.new(0, 18, 0, 18)
+		numBadge.Position = UDim2.new(0, 6, 0.5, -9)
+		numBadge.BackgroundColor3 = GetTheme().CardBg
+		numBadge.BackgroundTransparency = 0.1
+		numBadge.BorderSizePixel = 0
+		numBadge.Font = Enum.Font.GothamBlack
+		numBadge.TextSize = 9
+		numBadge.TextColor3 = GetTheme().Accent
+		numBadge.Text = tostring(i)
+		numBadge.ZIndex = 113
+		AddCorner(numBadge, 9)
+
 		local dot = Instance.new("Frame", node)
-		dot.Size = UDim2.new(0, 8, 0, 8)
-		dot.Position = UDim2.new(0, 7, 0.5, -4)
+		dot.Size = UDim2.new(0, 7, 0, 7)
+		dot.Position = UDim2.new(1, -13, 0, 6)
 		dot.BackgroundColor3 = Color3.fromRGB(115, 125, 140)
 		dot.BorderSizePixel = 0
 		dot.ZIndex = 113
 		AddCorner(dot, 4)
+
 		local lbl = Instance.new("TextLabel", node)
-		lbl.Size = UDim2.new(1, -22, 1, -4)
-		lbl.Position = UDim2.new(0, 18, 0, 2)
+		lbl.Size = UDim2.new(1, -38, 1, -6)
+		lbl.Position = UDim2.new(0, 28, 0, 3)
 		lbl.BackgroundTransparency = 1
 		lbl.Font = Enum.Font.GothamBold
 		lbl.TextSize = 10
@@ -5028,7 +5100,8 @@ do
 		lbl.TextColor3 = GetTheme().TextPrimary
 		lbl.Text = "Empty"
 		lbl.ZIndex = 113
-		wheelSlots[i] = { Node = node, Scale = nScale, Stroke = nStroke, Dot = dot, Label = lbl, Angle = angle }
+
+		wheelSlots[i] = { Node = node, Scale = nScale, Stroke = nStroke, Badge = numBadge, Dot = dot, Label = lbl, Angle = angle }
 		node.MouseButton1Click:Connect(function()
 			local item = wheelItems[i]
 			if item and item.Reg and item.Reg.Toggle then
@@ -5041,20 +5114,31 @@ do
 	local function ApplyRadialTheme(th)
 		th = th or GetTheme()
 		local d = Config.GuiDesign or "Default"
-		WheelRoot.BackgroundColor3 = th.MainBg
-		WheelRoot.BackgroundTransparency = (d == "LiquidGlass" and 0.36) or (d == "CyberHud" and 0.12) or 0.18
+		WheelRoot.BackgroundTransparency = (d == "LiquidGlass" and 0.30) or (d == "CyberHud" and 0.08) or 0.14
+		WheelBgGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, th.MainBg:Lerp(th.Accent, 0.14)),
+			ColorSequenceKeypoint.new(0.55, th.MainBg),
+			ColorSequenceKeypoint.new(1, th.MainBg:Lerp(th.Stroke, 0.16))
+		})
 		WheelStrokeGrad.Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, th.Accent),
 			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
 			ColorSequenceKeypoint.new(1, th.Stroke)
 		})
-		CenterCore.BackgroundColor3 = th.CardBg
+		OrbitStroke.Color = th.Accent
+		CenterAuraStroke.Color = th.Accent
+		CenterBgGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, th.CardBg:Lerp(th.Accent, 0.18)),
+			ColorSequenceKeypoint.new(1, th.MainBg)
+		})
 		CenterStroke.Color = th.Accent
 		CenterTitle.TextColor3 = th.TextPrimary
-		CenterSub.TextColor3 = th.Accent
+		CenterPill.BackgroundColor3 = th.Accent
 		for i = 1, 8 do
 			local s = wheelSlots[i]
 			s.Label.TextColor3 = th.TextPrimary
+			s.Badge.BackgroundColor3 = th.CardBg
+			s.Badge.TextColor3 = th.Accent
 			if hoveredSlotIdx ~= i then
 				s.Node.BackgroundColor3 = th.PanelBg
 				s.Stroke.Color = th.Stroke
@@ -5070,7 +5154,10 @@ do
 			local prev = wheelSlots[hoveredSlotIdx]
 			prev.Node.BackgroundColor3 = th.PanelBg
 			prev.Stroke.Color = th.Stroke
-			prev.Stroke.Thickness = 1.3
+			prev.Stroke.Thickness = 1.4
+			prev.Stroke.Transparency = 0.25
+			prev.Badge.BackgroundColor3 = th.CardBg
+			prev.Badge.TextColor3 = th.Accent
 			FUI.SafeTween(prev.Scale, FUI.TI.HoverOut, { Scale = 1.0 })
 		end
 		hoveredSlotIdx = idx
@@ -5079,16 +5166,19 @@ do
 			local item = wheelItems[idx]
 			cur.Node.BackgroundColor3 = th.Accent
 			cur.Stroke.Color = Color3.fromRGB(255, 255, 255)
-			cur.Stroke.Thickness = 2.0
-			FUI.SafeTween(cur.Scale, FUI.TI.HoverIn, { Scale = 1.10 })
+			cur.Stroke.Thickness = 2.2
+			cur.Stroke.Transparency = 0.0
+			cur.Badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			cur.Badge.TextColor3 = th.MainBg
+			FUI.SafeTween(cur.Scale, FUI.TI.HoverIn, { Scale = 1.12 })
 			local isOn = item.Reg.GetState and (item.Reg.GetState() == true)
 			CenterTitle.Text = item.ShortName
-			CenterSub.Text = isOn and "CURRENT: ON" or "CURRENT: OFF"
-			CenterSub.TextColor3 = isOn and Color3.fromRGB(60, 230, 140) or Color3.fromRGB(245, 95, 105)
+			CenterPill.Text = isOn and "STATUS: ON" or "STATUS: OFF"
+			CenterPill.BackgroundColor3 = isOn and Color3.fromRGB(40, 212, 122) or Color3.fromRGB(235, 76, 88)
 		else
 			CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Favorites"
-			CenterSub.Text = (#wheelItems > 0) and "RELEASE KEY" or "PIN ★ IN TABS"
-			CenterSub.TextColor3 = th.Accent
+			CenterPill.Text = (#wheelItems > 0) and "RELEASE KEY" or "PIN ★ IN TABS"
+			CenterPill.BackgroundColor3 = th.Accent
 		end
 	end
 
@@ -5113,25 +5203,32 @@ do
 			local item = wheelItems[i]
 			s.Node.BackgroundColor3 = th.PanelBg
 			s.Stroke.Color = th.Stroke
-			s.Stroke.Thickness = 1.3
+			s.Stroke.Thickness = 1.4
+			s.Stroke.Transparency = 0.25
+			s.Badge.BackgroundColor3 = th.CardBg
+			s.Badge.TextColor3 = th.Accent
 			s.Scale.Scale = 1.0
 			if item then
 				local isOn = item.Reg.GetState and (item.Reg.GetState() == true)
-				s.Node.BackgroundTransparency = 0.08
+				s.Node.BackgroundTransparency = 0.06
 				s.Label.Text = item.ShortName
 				s.Label.TextTransparency = 0
-				s.Dot.BackgroundColor3 = isOn and Color3.fromRGB(52, 226, 132) or Color3.fromRGB(140, 148, 165)
+				s.Badge.BackgroundTransparency = 0.08
+				s.Badge.TextTransparency = 0
+				s.Dot.BackgroundColor3 = isOn and Color3.fromRGB(48, 228, 134) or Color3.fromRGB(140, 148, 165)
 			else
-				s.Node.BackgroundTransparency = 0.55
-				s.Label.Text = "Slot " .. tostring(i)
-				s.Label.TextTransparency = 0.55
-				s.Dot.BackgroundColor3 = Color3.fromRGB(85, 92, 108)
+				s.Node.BackgroundTransparency = 0.58
+				s.Label.Text = "Empty"
+				s.Label.TextTransparency = 0.58
+				s.Badge.BackgroundTransparency = 0.58
+				s.Badge.TextTransparency = 0.55
+				s.Dot.BackgroundColor3 = Color3.fromRGB(80, 88, 104)
 			end
 		end
 		hoveredSlotIdx = nil
 		CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Favorites"
-		CenterSub.Text = (#wheelItems > 0) and "MOVE & RELEASE" or "PIN ★ IN TABS"
-		CenterSub.TextColor3 = th.Accent
+		CenterPill.Text = (#wheelItems > 0) and "MOVE & RELEASE" or "PIN ★ IN TABS"
+		CenterPill.BackgroundColor3 = th.Accent
 	end
 
 	FUI.OpenRadialWheel = function()
@@ -5140,14 +5237,14 @@ do
 		ApplyRadialTheme(GetTheme())
 		PopulateRadialSlots()
 		local mLoc = UserInputService:GetMouseLocation()
-		local inset = GuiService:GetGuiInset()
 		local cam = workspace.CurrentCamera
 		local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
-		local cx = math.clamp(mLoc.X, 165, math.max(165, vs.X - 165))
-		local cy = math.clamp(mLoc.Y - inset.Y, 165, math.max(165, vs.Y - 165))
-		wheelCenterPos = Vector2.new(cx, cy + inset.Y)
+		local margin = HALF_WHEEL + 8
+		local cx = math.clamp(mLoc.X, margin, math.max(margin, vs.X - margin))
+		local cy = math.clamp(mLoc.Y, margin, math.max(margin, vs.Y - margin))
+		wheelCenterPos = Vector2.new(cx, cy)
 		WheelRoot.Position = UDim2.new(0, cx, 0, cy)
-		WheelScale.Scale = 0.74
+		WheelScale.Scale = 0.72
 		WheelRoot.Visible = true
 		FUI.SafeTween(WheelScale, FUI.TI.NotifIn, { Scale = 1.0 })
 		if radialMoveConn then pcall(function() radialMoveConn:Disconnect() end) end
@@ -5158,7 +5255,7 @@ do
 			local dx = pos.X - wheelCenterPos.X
 			local dy = pos.Y - wheelCenterPos.Y
 			local dist = math.sqrt(dx * dx + dy * dy)
-			if dist < 42 then
+			if dist < 48 then
 				UpdateRadialHover(nil)
 				return
 			end
@@ -5197,6 +5294,19 @@ do
 	local UptimeCard = CreateCard(Tab1_Dashboard, 44, 26)
 	local uptimeLbl = MakeLabel(UptimeCard, UDim2.new(1, -24, 1, 0), UDim2.new(0, 12, 0, 0), "Uptime: 00:00:00  |  AFK Saves: 0  |  Focus: ACTIVE", Enum.Font.GothamBold, 11, "Accent", Enum.TextXAlignment.Center)
 	uptimeLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local PowerBackdrop = Instance.new("TextButton")
+	PowerBackdrop.Name = "TR_PowerSaverBackdrop"
+	PowerBackdrop.Size = UDim2.new(1, 0, 1, 0)
+	PowerBackdrop.Position = UDim2.new(0, 0, 0, 0)
+	PowerBackdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	PowerBackdrop.BackgroundTransparency = 0
+	PowerBackdrop.BorderSizePixel = 0
+	PowerBackdrop.Text = ""
+	PowerBackdrop.AutoButtonColor = false
+	PowerBackdrop.Visible = false
+	PowerBackdrop.ZIndex = 119
+	PowerBackdrop.Parent = ScreenGui
 
 	local PowerBanner = Instance.new("TextButton")
 	PowerBanner.Name = "TR_PowerSaverBanner"
@@ -5241,10 +5351,12 @@ do
 		if isClosingPermanently then return end
 		if unfocused and Config.FocusPowerSaverEnabled ~= false then
 			FUI.IsWindowUnfocused = true
+			PowerBackdrop.Visible = true
 			PowerBanner.Visible = true
 			pcall(function() RunService:Set3dRenderingEnabled(false) end)
 		else
 			FUI.IsWindowUnfocused = false
+			PowerBackdrop.Visible = false
 			PowerBanner.Visible = false
 			pcall(function() RunService:Set3dRenderingEnabled(true) end)
 		end
@@ -5258,6 +5370,9 @@ do
 		SaveConfig(false)
 	end)
 
+	PowerBackdrop.MouseButton1Click:Connect(function()
+		FUI.SetWindowPowerSaverState(false)
+	end)
 	PowerBanner.MouseButton1Click:Connect(function()
 		FUI.SetWindowPowerSaverState(false)
 	end)
@@ -8459,39 +8574,152 @@ end if FUI.SetLoadProgress then FUI.SetLoadProgress(74, "Loading Aimbot, ESP & L
 local RunningExecutorThreads = {}
 local function SetupTab8()
 	CreateSectionHeader(Tab8_Executor, "Multi-Tab Luau Script Executor", 1)
-	local ExecHeaderCard = CreateCard(Tab8_Executor, 44, 2)
+	local ExecHeaderCard = CreateCard(Tab8_Executor, 46, 2)
 	local ScrollLeftBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(0, 8, 0.5, -14), "<", "PanelBg", 13)
-	ScrollLeftBtn.ZIndex = 8
-	local ScrollRightBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -70, 0.5, -14), ">", "PanelBg", 13)
-	ScrollRightBtn.ZIndex = 8
-	local AddTabBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -36, 0.5, -14), "+", "Accent", 15)
-	AddTabBtn.ZIndex = 8
+	ScrollLeftBtn.ZIndex = 10
+	local ScrollRightBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -72, 0.5, -14), ">", "PanelBg", 13)
+	ScrollRightBtn.ZIndex = 10
+	local AddTabBtn = MakeButton(ExecHeaderCard, UDim2.new(0, 28, 0, 28), UDim2.new(1, -38, 0.5, -14), "+", "Accent", 16)
+	AddTabBtn.ZIndex = 10
 
 	local TabsScroll = Instance.new("ScrollingFrame")
-	TabsScroll.Size = UDim2.new(1, -118, 0, 34)
+	TabsScroll.Size = UDim2.new(1, -120, 0, 34)
 	TabsScroll.Position = UDim2.new(0, 42, 0.5, -17)
 	TabsScroll.BackgroundTransparency = 1
 	TabsScroll.BorderSizePixel = 0
 	TabsScroll.ScrollBarThickness = 3
 	TabsScroll.ScrollingEnabled = true
 	TabsScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
-	TabsScroll.CanvasSize = UDim2.new(0, 140, 0, 0)
+	TabsScroll.CanvasSize = UDim2.new(0, 260, 0, 34)
 	TabsScroll.ScrollingDirection = Enum.ScrollingDirection.X
-	TabsScroll.ZIndex = 5
+	TabsScroll.ClipsDescendants = true
+	TabsScroll.ZIndex = 6
 	TabsScroll.Parent = ExecHeaderCard
 	RegisterThemeObject(TabsScroll, "ScrollBarImageColor3", "Accent")
 
 	local TabsScrollLayout = Instance.new("UIListLayout")
 	TabsScrollLayout.FillDirection = Enum.FillDirection.Horizontal
 	TabsScrollLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	TabsScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	TabsScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	TabsScrollLayout.Padding = UDim.new(0, 6)
 	TabsScrollLayout.Parent = TabsScroll
 
+	local EditorCard = CreateCard(Tab8_Executor, 240, 3)
+	EditorCard.ClipsDescendants = true
+
+	local CodeScroll = Instance.new("ScrollingFrame")
+	CodeScroll.Size = UDim2.new(1, -16, 1, -16)
+	CodeScroll.Position = UDim2.new(0, 8, 0, 8)
+	CodeScroll.BackgroundTransparency = 0.12
+	CodeScroll.BorderSizePixel = 0
+	CodeScroll.ScrollBarThickness = 6
+	CodeScroll.ScrollingEnabled = true
+	CodeScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+	CodeScroll.CanvasSize = UDim2.new(0, 0, 0, 224)
+	CodeScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	CodeScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+	CodeScroll.ScrollBarImageTransparency = 0.18
+	CodeScroll.ClipsDescendants = true
+	CodeScroll.ZIndex = 6
+	CodeScroll.Parent = EditorCard
+	RegisterThemeObject(CodeScroll, "BackgroundColor3", "PanelBg")
+	RegisterThemeObject(CodeScroll, "ScrollBarImageColor3", "Accent")
+	AddCorner(CodeScroll, 6)
+
+	local CodeBox = Instance.new("TextBox")
+	CodeBox.Name = "TR_ExecCodeBox"
+	CodeBox.Size = UDim2.new(1, -14, 0, 220)
+	CodeBox.Position = UDim2.new(0, 7, 0, 6)
+	CodeBox.BackgroundTransparency = 1
+	CodeBox.BorderSizePixel = 0
+	CodeBox.MultiLine = true
+	CodeBox.ClearTextOnFocus = false
+	CodeBox.TextWrapped = true
+	CodeBox.Font = Enum.Font.Code
+	CodeBox.TextSize = 13
+	CodeBox.TextXAlignment = Enum.TextXAlignment.Left
+	CodeBox.TextYAlignment = Enum.TextYAlignment.Top
+	CodeBox.PlaceholderText = "Write or paste your Luau script here..."
+	CodeBox.Text = ""
+	CodeBox.ZIndex = 10
+	CodeBox.Active = true
+	CodeBox.Selectable = true
+	CodeBox.Parent = CodeScroll
+	RegisterThemeObject(CodeBox, "TextColor3", "TextPrimary")
+	RegisterThemeObject(CodeBox, "PlaceholderColor3", "TextSecondary")
+
+	local isLoadingTabText = false
+	local updatingCanvas = false
+	local TabScrollY = {}
+
+	local function UpdateCodeScrollCanvas()
+		if updatingCanvas or not CodeBox or not CodeBox.Parent then return end
+		updatingCanvas = true
+		local minH = math.max(212, CodeScroll.AbsoluteSize.Y - 12)
+		local tbY = (CodeBox.TextBounds and CodeBox.TextBounds.Y) or 0
+		local lineCount = 1
+		for _ in string.gmatch(CodeBox.Text, "\n") do lineCount = lineCount + 1 end
+		local estH = (lineCount * 17) + 32
+		local targetH = math.max(minH, tbY + 32, estH)
+		CodeScroll.CanvasSize = UDim2.new(0, 0, 0, targetH)
+		CodeBox.Size = UDim2.new(1, -14, 0, targetH)
+		updatingCanvas = false
+	end
+	CodeScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateCodeScrollCanvas)
+	CodeBox:GetPropertyChangedSignal("TextBounds"):Connect(UpdateCodeScrollCanvas)
+
+	local function HandleCodeWheelScroll(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			local maxScroll = math.max(0, CodeScroll.CanvasSize.Y.Offset - CodeScroll.AbsoluteSize.Y)
+			local newY = math.clamp(CodeScroll.CanvasPosition.Y - (input.Position.Z * 45), 0, maxScroll)
+			CodeScroll.CanvasPosition = Vector2.new(0, newY)
+			local curTab = savedConfig.ExecutorTabs[savedConfig.ActiveExecutorTab]
+			if curTab then TabScrollY[curTab] = newY end
+		end
+	end
+	CodeScroll.InputChanged:Connect(HandleCodeWheelScroll)
+	CodeBox.InputChanged:Connect(HandleCodeWheelScroll)
+	CodeScroll.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			pcall(function() CodeBox:CaptureFocus() end)
+		end
+	end)
+
+	local function SanitizeExecutorTabs()
+		local normalized = {}
+		if type(savedConfig.ExecutorTabs) == "table" then
+			for i = 1, #savedConfig.ExecutorTabs do
+				local entry = savedConfig.ExecutorTabs[i]
+				if type(entry) == "table" then
+					table.insert(normalized, {
+						Name = tostring(entry.Name or ("Script " .. tostring(#normalized + 1))),
+						Code = tostring(entry.Code or "")
+					})
+				end
+			end
+			if #normalized == 0 then
+				for _, entry in pairs(savedConfig.ExecutorTabs) do
+					if type(entry) == "table" then
+						table.insert(normalized, {
+							Name = tostring(entry.Name or ("Script " .. tostring(#normalized + 1))),
+							Code = tostring(entry.Code or "")
+						})
+					end
+				end
+			end
+		end
+		if #normalized == 0 then
+			table.insert(normalized, { Name = "Script 1", Code = "print('T.R Scripts V95 Ready!')" })
+		end
+		savedConfig.ExecutorTabs = normalized
+		savedConfig.ActiveExecutorTab = math.clamp(tonumber(savedConfig.ActiveExecutorTab) or 1, 1, #savedConfig.ExecutorTabs)
+	end
+
 	local function UpdateTabsCanvasSize()
-		local count = (type(savedConfig.ExecutorTabs) == "table") and #savedConfig.ExecutorTabs or 1
-		local totalW = math.max(TabsScroll.AbsoluteSize.X, (count * 134) + 10)
-		TabsScroll.CanvasSize = UDim2.new(0, totalW, 0, 0)
+		local count = #savedConfig.ExecutorTabs
+		local totalW = math.max(TabsScroll.AbsoluteSize.X, (count * 136) + 12)
+		TabsScroll.CanvasSize = UDim2.new(0, totalW, 0, 34)
 	end
 
 	local function ScrollExecutorTabsBy(deltaX)
@@ -8500,8 +8728,8 @@ local function SetupTab8()
 		local targetX = math.clamp(TabsScroll.CanvasPosition.X + deltaX, 0, maxScroll)
 		TabsScroll.CanvasPosition = Vector2.new(targetX, 0)
 	end
-	ScrollLeftBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(-134) end)
-	ScrollRightBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(134) end)
+	ScrollLeftBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(-136) end)
+	ScrollRightBtn.MouseButton1Click:Connect(function() ScrollExecutorTabsBy(136) end)
 	local function HandleTabWheelScroll(input)
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
 			ScrollExecutorTabsBy(-input.Position.Z * 110)
@@ -8510,105 +8738,25 @@ local function SetupTab8()
 	ExecHeaderCard.InputChanged:Connect(HandleTabWheelScroll)
 	TabsScroll.InputChanged:Connect(HandleTabWheelScroll)
 
-	local EditorCard = CreateCard(Tab8_Executor, 240, 3)
-	EditorCard.ClipsDescendants = true
-
-	local CodeScroll = Instance.new("ScrollingFrame")
-	CodeScroll.Size = UDim2.new(1, -16, 1, -16)
-	CodeScroll.Position = UDim2.new(0, 8, 0, 8)
-	CodeScroll.BackgroundTransparency = 0.15
-	CodeScroll.BorderSizePixel = 0
-	CodeScroll.ScrollBarThickness = 6
-	CodeScroll.ScrollingEnabled = true
-	CodeScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
-	CodeScroll.CanvasSize = UDim2.new(0, 0, 0, 220)
-	CodeScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-	CodeScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-	CodeScroll.ScrollBarImageTransparency = 0.2
-	CodeScroll.ClipsDescendants = true
-	CodeScroll.Parent = EditorCard
-	RegisterThemeObject(CodeScroll, "BackgroundColor3", "PanelBg")
-	RegisterThemeObject(CodeScroll, "ScrollBarImageColor3", "Accent")
-	AddCorner(CodeScroll, 6)
-
-	local TabCodeBoxes = {}
-	local TabScrollY = {}
-	local ActiveTabRef = nil
-	local ActiveCodeBox = nil
-	local updatingCanvas = false
-
-	local function UpdateCodeScrollCanvas()
-		if updatingCanvas then return end
-		local box = ActiveCodeBox
-		if not box or not box.Parent then return end
-		updatingCanvas = true
-		local minHeight = math.max(200, CodeScroll.AbsoluteSize.Y - 12)
-		local textH = math.max(minHeight, box.TextBounds.Y + 28)
-		if math.abs(CodeScroll.CanvasSize.Y.Offset - textH) > 2 then
-			CodeScroll.CanvasSize = UDim2.new(0, 0, 0, textH)
-		end
-		if math.abs(box.Size.Y.Offset - textH) > 2 then
-			box.Size = UDim2.new(1, -14, 0, textH)
-		end
-		updatingCanvas = false
-	end
-	CodeScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateCodeScrollCanvas)
-
-	local function HandleCodeWheelScroll(input)
-		if input.UserInputType == Enum.UserInputType.MouseWheel then
-			local cur = CodeScroll.CanvasPosition.Y
-			local maxScroll = math.max(0, CodeScroll.CanvasSize.Y.Offset - CodeScroll.AbsoluteSize.Y)
-			local newY = math.clamp(cur - (input.Position.Z * 45), 0, maxScroll)
-			CodeScroll.CanvasPosition = Vector2.new(0, newY)
-			if ActiveTabRef then TabScrollY[ActiveTabRef] = newY end
+	local function SaveCurrentEditorToActiveTab()
+		if isLoadingTabText then return end
+		local curTab = savedConfig.ExecutorTabs[savedConfig.ActiveExecutorTab]
+		if curTab then
+			curTab.Code = CodeBox.Text
+			TabScrollY[curTab] = CodeScroll.CanvasPosition.Y
 		end
 	end
-	CodeScroll.InputChanged:Connect(HandleCodeWheelScroll)
 
-	local function GetOrCreateTabCodeBox(tabData)
-		local existing = TabCodeBoxes[tabData]
-		if existing and existing.Parent then return existing end
-		local box = Instance.new("TextBox")
-		box.Size = UDim2.new(1, -14, 0, 220)
-		box.AutomaticSize = Enum.AutomaticSize.None
-		box.Position = UDim2.new(0, 6, 0, 6)
-		box.BackgroundTransparency = 1
-		box.MultiLine = true
-		box.ClearTextOnFocus = false
-		box.TextWrapped = true
-		box.Font = Enum.Font.Code
-		box.TextSize = 13
-		box.TextXAlignment = Enum.TextXAlignment.Left
-		box.TextYAlignment = Enum.TextYAlignment.Top
-		box.PlaceholderText = "Write your Luau script here..."
-		box.Text = tostring(tabData.Code or "")
-		box.Visible = false
-		box.Parent = CodeScroll
-		RegisterThemeObject(box, "TextColor3", "TextPrimary")
-		RegisterThemeObject(box, "PlaceholderColor3", "TextSecondary")
-		box.InputChanged:Connect(HandleCodeWheelScroll)
-		box:GetPropertyChangedSignal("Text"):Connect(function()
-			tabData.Code = box.Text
-			if ActiveCodeBox == box then UpdateCodeScrollCanvas() end
-			SaveConfig(false)
-		end)
-		box:GetPropertyChangedSignal("TextBounds"):Connect(function()
-			if ActiveCodeBox == box then UpdateCodeScrollCanvas() end
-		end)
-		box.FocusLost:Connect(function()
-			tabData.Code = box.Text
-			SaveConfig(false)
-		end)
-		TabCodeBoxes[tabData] = box
-		return box
-	end
-
-	local function CommitActiveTabBuffer()
-		if ActiveTabRef and ActiveCodeBox and ActiveCodeBox.Parent then
-			TabScrollY[ActiveTabRef] = CodeScroll.CanvasPosition.Y
-			ActiveTabRef.Code = ActiveCodeBox.Text
-		end
-	end
+	CodeBox:GetPropertyChangedSignal("Text"):Connect(function()
+		if isLoadingTabText then return end
+		SaveCurrentEditorToActiveTab()
+		UpdateCodeScrollCanvas()
+		SaveConfig(false)
+	end)
+	CodeBox.FocusLost:Connect(function()
+		SaveCurrentEditorToActiveTab()
+		SaveConfig(false)
+	end)
 
 	local function SyncTabChipColors()
 		local curTheme = GetTheme()
@@ -8620,59 +8768,22 @@ local function SetupTab8()
 		end
 	end
 
-	local function SanitizeExecutorTabs()
-		if type(savedConfig.ExecutorTabs) ~= "table" then savedConfig.ExecutorTabs = {} end
-		for i = #savedConfig.ExecutorTabs, 1, -1 do
-			if type(savedConfig.ExecutorTabs[i]) ~= "table" then
-				table.remove(savedConfig.ExecutorTabs, i)
-			end
-		end
-		if #savedConfig.ExecutorTabs == 0 then
-			table.insert(savedConfig.ExecutorTabs, { Name = "Script 1", Code = "" })
-		end
-		savedConfig.ActiveExecutorTab = math.clamp(tonumber(savedConfig.ActiveExecutorTab) or 1, 1, #savedConfig.ExecutorTabs)
-	end
-
-	local function ActivateExecutorTab(targetIdx, keepNameFocus)
+	local function SelectExecutorTab(targetIdx, skipReleaseFocus)
 		SanitizeExecutorTabs()
-		CommitActiveTabBuffer()
-		if not keepNameFocus and ActiveCodeBox and ActiveCodeBox.Parent then
-			pcall(function()
-				if ActiveCodeBox:IsFocused() then ActiveCodeBox:ReleaseFocus() end
-			end)
+		SaveCurrentEditorToActiveTab()
+		if not skipReleaseFocus then
+			pcall(function() if CodeBox:IsFocused() then CodeBox:ReleaseFocus() end end)
 		end
-		local clampedIdx = math.clamp(tonumber(targetIdx) or 1, 1, #savedConfig.ExecutorTabs)
-		savedConfig.ActiveExecutorTab = clampedIdx
-		local activeTab = savedConfig.ExecutorTabs[clampedIdx]
-		local activeBox = GetOrCreateTabCodeBox(activeTab)
-		for td, bx in pairs(TabCodeBoxes) do
-			if bx and bx.Parent then
-				bx.Visible = (td == activeTab)
-			end
-		end
-		ActiveTabRef = activeTab
-		ActiveCodeBox = activeBox
-		if activeBox.Text ~= tostring(activeTab.Code or "") then
-			activeBox.Text = tostring(activeTab.Code or "")
-		end
+		local idx = math.clamp(tonumber(targetIdx) or 1, 1, #savedConfig.ExecutorTabs)
+		savedConfig.ActiveExecutorTab = idx
+		local tabData = savedConfig.ExecutorTabs[idx]
+		isLoadingTabText = true
+		CodeBox.Text = tostring(tabData.Code or "")
+		isLoadingTabText = false
 		UpdateCodeScrollCanvas()
-		CodeScroll.CanvasPosition = Vector2.new(0, TabScrollY[activeTab] or 0)
+		CodeScroll.CanvasPosition = Vector2.new(0, TabScrollY[tabData] or 0)
 		SyncTabChipColors()
 	end
-
-	local ExecActionCard = CreateCard(Tab8_Executor, 48, 4)
-	local ExecActionLayout = Instance.new("UIListLayout")
-	ExecActionLayout.FillDirection = Enum.FillDirection.Horizontal
-	ExecActionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	ExecActionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	ExecActionLayout.Padding = UDim.new(0, 12) ExecActionLayout.Parent = ExecActionCard
-	local ExecuteBtn = MakeButton(ExecActionCard, UDim2.new(0, 155, 0, 32), nil, E.Play .. " Execute", "Accent", 12)
-	local ClearBtn = MakeButton(ExecActionCard, UDim2.new(0, 155, 0, 32), nil, E.Broom .. " Clear", "AccentDark", 12)
-	local TerminateBtn = Instance.new("TextButton") TerminateBtn.Size = UDim2.new(0, 155, 0, 32)
-	TerminateBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55) TerminateBtn.Font = Enum.Font.GothamBold
-	TerminateBtn.TextSize = 12 TerminateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	TerminateBtn.Text = E.Stop .. " Terminate" TerminateBtn.Parent = ExecActionCard
-	AddCorner(TerminateBtn, 6) FUI.AttachSpringAndRipple(TerminateBtn)
 
 	local function GetNextUniqueScriptName()
 		local used = {}
@@ -8680,73 +8791,59 @@ local function SetupTab8()
 			if type(td.Name) == "string" then used[td.Name] = true end
 		end
 		local n = #savedConfig.ExecutorTabs + 1
-		while used["Script " .. tostring(n)] do
-			n = n + 1
-		end
+		while used["Script " .. tostring(n)] do n = n + 1 end
 		return "Script " .. tostring(n)
 	end
 
 	local function RebuildExecutorTabs()
 		SanitizeExecutorTabs()
-		CommitActiveTabBuffer()
-
-		local validTabs = {}
-		for _, td in ipairs(savedConfig.ExecutorTabs) do
-			validTabs[td] = true
-			GetOrCreateTabCodeBox(td)
-		end
-		for td, bx in pairs(TabCodeBoxes) do
-			if not validTabs[td] then
-				if bx and bx.Parent then bx:Destroy() end
-				TabCodeBoxes[td] = nil
-				TabScrollY[td] = nil
-			end
-		end
-
+		SaveCurrentEditorToActiveTab()
 		for _, child in ipairs(TabsScroll:GetChildren()) do
 			if child:IsA("Frame") then child:Destroy() end
 		end
-
 		local theme = GetTheme()
 		for idx, tabData in ipairs(savedConfig.ExecutorTabs) do
 			local isSelected = (idx == savedConfig.ActiveExecutorTab)
 			local TabChip = Instance.new("Frame")
 			TabChip.LayoutOrder = idx
-			TabChip.Size = UDim2.new(0, 128, 0, 26)
+			TabChip.Size = UDim2.new(0, 130, 0, 26)
 			TabChip.BackgroundColor3 = isSelected and theme.Accent or theme.PanelBg
 			TabChip.BorderSizePixel = 0
-			TabChip.ZIndex = 6
+			TabChip.ZIndex = 7
 			TabChip.Parent = TabsScroll
 			AddCorner(TabChip, 6)
 
 			local SelectBtn = Instance.new("TextButton")
-			SelectBtn.Size = UDim2.new(0, 22, 1, 0)
+			SelectBtn.Size = UDim2.new(0, 24, 1, 0)
+			SelectBtn.Position = UDim2.new(0, 0, 0, 0)
 			SelectBtn.BackgroundTransparency = 1
 			SelectBtn.Font = Enum.Font.GothamBold
 			SelectBtn.TextSize = 11
-			SelectBtn.TextColor3 = theme.TextPrimary
+			SelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			SelectBtn.Text = tostring(idx)
-			SelectBtn.ZIndex = 7
+			SelectBtn.ZIndex = 8
 			SelectBtn.Parent = TabChip
 			SelectBtn.MouseButton1Click:Connect(function()
-				ActivateExecutorTab(idx, false)
+				SelectExecutorTab(idx, false)
 				SaveConfig(false)
 			end)
 
 			local NameInput = Instance.new("TextBox")
 			NameInput.Size = UDim2.new(1, -48, 1, 0)
-			NameInput.Position = UDim2.new(0, 22, 0, 0)
+			NameInput.Position = UDim2.new(0, 24, 0, 0)
 			NameInput.BackgroundTransparency = 1
 			NameInput.ClearTextOnFocus = false
 			NameInput.Font = Enum.Font.GothamSemibold
 			NameInput.TextSize = 11
-			NameInput.TextColor3 = theme.TextPrimary
-			NameInput.Text = tabData.Name or ("Script " .. idx)
-			NameInput.ZIndex = 7
+			NameInput.TextXAlignment = Enum.TextXAlignment.Left
+			NameInput.TextTruncate = Enum.TextTruncate.AtEnd
+			NameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+			NameInput.Text = tabData.Name or ("Script " .. tostring(idx))
+			NameInput.ZIndex = 8
 			NameInput.Parent = TabChip
 			NameInput.Focused:Connect(function()
 				if savedConfig.ActiveExecutorTab ~= idx then
-					ActivateExecutorTab(idx, true)
+					SelectExecutorTab(idx, true)
 					SaveConfig(false)
 				end
 			end)
@@ -8758,24 +8855,20 @@ local function SetupTab8()
 			end)
 
 			local DelTabBtn = Instance.new("TextButton")
-			DelTabBtn.Size = UDim2.new(0, 22, 1, 0)
-			DelTabBtn.Position = UDim2.new(1, -22, 0, 0)
+			DelTabBtn.Size = UDim2.new(0, 24, 1, 0)
+			DelTabBtn.Position = UDim2.new(1, -24, 0, 0)
 			DelTabBtn.BackgroundTransparency = 1
 			DelTabBtn.Font = Enum.Font.GothamBold
 			DelTabBtn.TextSize = 13
-			DelTabBtn.TextColor3 = theme.TextPrimary
+			DelTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			DelTabBtn.Text = E.Close
-			DelTabBtn.ZIndex = 7
+			DelTabBtn.ZIndex = 8
 			DelTabBtn.Parent = TabChip
 			DelTabBtn.MouseButton1Click:Connect(function()
 				if #savedConfig.ExecutorTabs > 1 then
-					CommitActiveTabBuffer()
+					SaveCurrentEditorToActiveTab()
 					local removed = table.remove(savedConfig.ExecutorTabs, idx)
-					if removed and TabCodeBoxes[removed] then
-						pcall(function() TabCodeBoxes[removed]:Destroy() end)
-						TabCodeBoxes[removed] = nil
-						TabScrollY[removed] = nil
-					end
+					if removed then TabScrollY[removed] = nil end
 					if idx < savedConfig.ActiveExecutorTab then
 						savedConfig.ActiveExecutorTab = savedConfig.ActiveExecutorTab - 1
 					else
@@ -8786,35 +8879,18 @@ local function SetupTab8()
 				end
 			end)
 		end
-
 		UpdateTabsCanvasSize()
-		ActivateExecutorTab(savedConfig.ActiveExecutorTab, false)
+		SelectExecutorTab(savedConfig.ActiveExecutorTab, false)
 	end
 
 	table.insert(ThemeObjects.CustomCallbacks, function()
 		SyncTabChipColors()
-		local theme = GetTheme()
-		for _, ch in ipairs(TabsScroll:GetChildren()) do
-			if ch:IsA("Frame") then
-				for _, sub in ipairs(ch:GetChildren()) do
-					if sub:IsA("TextButton") or sub:IsA("TextBox") then
-						sub.TextColor3 = theme.TextPrimary
-					end
-				end
-			end
-		end
 	end)
 
 	AddTabBtn.MouseButton1Click:Connect(function()
 		SanitizeExecutorTabs()
-		CommitActiveTabBuffer()
-		if ActiveCodeBox and ActiveCodeBox.Parent then
-			pcall(function()
-				if ActiveCodeBox:IsFocused() then ActiveCodeBox:ReleaseFocus() end
-			end)
-		end
-		local newTab = { Name = GetNextUniqueScriptName(), Code = "" }
-		table.insert(savedConfig.ExecutorTabs, newTab)
+		SaveCurrentEditorToActiveTab()
+		table.insert(savedConfig.ExecutorTabs, { Name = GetNextUniqueScriptName(), Code = "" })
 		savedConfig.ActiveExecutorTab = #savedConfig.ExecutorTabs
 		RebuildExecutorTabs()
 		SaveConfig(false)
@@ -8825,11 +8901,36 @@ local function SetupTab8()
 		end)
 	end)
 
+	local ExecActionCard = CreateCard(Tab8_Executor, 48, 4)
+	local ExecActionLayout = Instance.new("UIListLayout")
+	ExecActionLayout.FillDirection = Enum.FillDirection.Horizontal
+	ExecActionLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	ExecActionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	ExecActionLayout.Padding = UDim.new(0, 10)
+	ExecActionLayout.Parent = ExecActionCard
+	local ExecuteBtn = MakeButton(ExecActionCard, UDim2.new(0, 130, 0, 32), nil, E.Play .. " Execute", "Accent", 12)
+	local ClearBtn = MakeButton(ExecActionCard, UDim2.new(0, 118, 0, 32), nil, E.Broom .. " Clear", "AccentDark", 12)
+	local CopyCodeBtn = MakeButton(ExecActionCard, UDim2.new(0, 118, 0, 32), nil, E.Clip .. " Copy", "PanelBg", 12)
+	local TerminateBtn = Instance.new("TextButton")
+	TerminateBtn.Size = UDim2.new(0, 130, 0, 32)
+	TerminateBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+	TerminateBtn.BorderSizePixel = 0
+	TerminateBtn.Font = Enum.Font.GothamBold
+	TerminateBtn.TextSize = 12
+	TerminateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TerminateBtn.Text = E.Stop .. " Terminate"
+	TerminateBtn.Parent = ExecActionCard
+	AddCorner(TerminateBtn, 6)
+	FUI.AttachSpringAndRipple(TerminateBtn)
+
 	local ConsoleLines = {}
-	local ConsoleOpen = true
-	local ConsoleCard = CreateCard(Tab8_Executor, 166, 5)
+	local ConsoleMeta = {}
+	local ConsoleOpen = false
+	local ConsoleDirty = false
+	local ConsoleRenderQueued = false
+	local ConsoleCard = CreateCard(Tab8_Executor, 42, 5)
 	ConsoleCard.ClipsDescendants = true
-	local ConsoleToggleBtn = MakeButton(ConsoleCard, UDim2.new(0.54, -10, 0, 26), UDim2.new(0, 10, 0, 8), E.Laptop .. " Live Console Output [Hide]", "PanelBg", 11)
+	local ConsoleToggleBtn = MakeButton(ConsoleCard, UDim2.new(0.54, -10, 0, 26), UDim2.new(0, 10, 0, 8), E.Laptop .. " Live Console Output [Show]", "PanelBg", 11)
 	local ConsoleCopyBtn = MakeButton(ConsoleCard, UDim2.new(0.23, -6, 0, 26), UDim2.new(0.54, 4, 0, 8), E.Clip .. " Copy", "PanelBg", 10)
 	local ConsoleClearBtn = MakeButton(ConsoleCard, UDim2.new(0.23, -10, 0, 26), UDim2.new(0.77, 2, 0, 8), E.Broom .. " Clear", "AccentDark", 10)
 
@@ -8841,6 +8942,7 @@ local function SetupTab8()
 	ConsoleScroll.ScrollBarThickness = 5
 	ConsoleScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
 	ConsoleScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	ConsoleScroll.Visible = false
 	RegisterThemeObject(ConsoleScroll, "BackgroundColor3", "PanelBg")
 	RegisterThemeObject(ConsoleScroll, "ScrollBarImageColor3", "Accent")
 	AddCorner(ConsoleScroll, 6)
@@ -8851,10 +8953,6 @@ local function SetupTab8()
 	ConsolePad.PaddingTop = UDim.new(0, 4) ConsolePad.PaddingBottom = UDim.new(0, 4)
 	ConsolePad.PaddingLeft = UDim.new(0, 6) ConsolePad.PaddingRight = UDim.new(0, 6)
 
-	local consoleCounter = 0
-	local ConsoleMeta = {}
-	local ConsoleDirty = false
-	local ConsoleRenderQueued = false
 	local function SyncConsoleUI()
 		ConsoleRenderQueued = false
 		if isClosingPermanently or not ConsoleScroll or not ConsoleScroll.Parent then return end
@@ -8887,10 +8985,14 @@ local function SetupTab8()
 		ConsoleScroll.CanvasSize = UDim2.new(0, 0, 0, totalH)
 		ConsoleScroll.CanvasPosition = Vector2.new(0, math.max(0, totalH - ConsoleScroll.AbsoluteSize.Y))
 	end
-	FUI.SyncConsoleUI = SyncConsoleUI
+	FUI.SyncConsoleUI = function()
+		UpdateTabsCanvasSize()
+		UpdateCodeScrollCanvas()
+		SyncConsoleUI()
+	end
+
 	local function AppendConsoleLine(level, msg)
 		if isClosingPermanently then return end
-		consoleCounter = consoleCounter + 1
 		local stamp = os.date("%H:%M:%S")
 		local prefix = (level == "ERR" and "[ERR]") or (level == "WARN" and "[WARN]") or (level == "RUN" and "[RUN]") or "[OUT]"
 		local lineStr = string.format("[%s] %s %s", stamp, prefix, tostring(msg))
@@ -8925,7 +9027,7 @@ local function SetupTab8()
 		FUI.SafeTween(ConsoleCard, FUI.TI.TabPage, {
 			Size = ConsoleOpen and UDim2.new(1, 0, 0, 166) or UDim2.new(1, 0, 0, 42)
 		})
-		if ConsoleOpen then SyncConsoleUI() end
+		if ConsoleOpen then ConsoleDirty = true SyncConsoleUI() end
 	end)
 	ConsoleClearBtn.MouseButton1Click:Connect(function()
 		table.clear(ConsoleLines)
@@ -8945,7 +9047,10 @@ local function SetupTab8()
 	end)
 
 	local function ExecuteSourceWithLogging(source, labelName)
-		if not source or #source == 0 then return end
+		if not source or #source == 0 then
+			AppendConsoleLine("WARN", "Editor is empty.")
+			return false
+		end
 		AppendConsoleLine("RUN", "Executing " .. tostring(labelName or "Script") .. "...")
 		local fn, err = SafeLoadstring(source)
 		if fn then
@@ -8962,254 +9067,59 @@ local function SetupTab8()
 				end
 			end)
 			table.insert(RunningExecutorThreads, thRef)
+			return true
 		else
 			AppendConsoleLine("ERR", "Compile Error: " .. tostring(err))
 			warn("[T.R Scripts Executor Compile Error]: " .. tostring(err))
+			return false
 		end
 	end
 
 	ExecuteBtn.MouseButton1Click:Connect(function()
-		CommitActiveTabBuffer()
-		local source = ActiveCodeBox and ActiveCodeBox.Text or ""
-		ExecuteSourceWithLogging(source, ActiveTabRef and ActiveTabRef.Name or "Active Tab")
+		SaveCurrentEditorToActiveTab()
+		local curTab = savedConfig.ExecutorTabs[savedConfig.ActiveExecutorTab]
+		local okRun = ExecuteSourceWithLogging(CodeBox.Text, curTab and curTab.Name or "Script")
+		ExecuteBtn.Text = okRun and (E.Check .. " Ran!") or (E.Close .. " Error")
+		task.delay(0.9, function()
+			if ExecuteBtn and ExecuteBtn.Parent then ExecuteBtn.Text = E.Play .. " Execute" end
+		end)
 	end)
 
 	ClearBtn.MouseButton1Click:Connect(function()
-		if ActiveCodeBox and ActiveCodeBox.Parent then
-			ActiveCodeBox.Text = ""
-			if ActiveTabRef then ActiveTabRef.Code = "" end
-			UpdateCodeScrollCanvas()
-			SaveConfig(false)
-		end
+		isLoadingTabText = true
+		CodeBox.Text = ""
+		isLoadingTabText = false
+		SaveCurrentEditorToActiveTab()
+		UpdateCodeScrollCanvas()
+		SaveConfig(false)
+		ClearBtn.Text = E.Check .. " Cleared"
+		task.delay(0.8, function()
+			if ClearBtn and ClearBtn.Parent then ClearBtn.Text = E.Broom .. " Clear" end
+		end)
+	end)
+
+	CopyCodeBtn.MouseButton1Click:Connect(function()
+		SafeClipboard(CodeBox.Text or "")
+		CopyCodeBtn.Text = E.Check .. " Copied"
+		task.delay(0.9, function()
+			if CopyCodeBtn and CopyCodeBtn.Parent then CopyCodeBtn.Text = E.Clip .. " Copy" end
+		end)
 	end)
 
 	TerminateBtn.MouseButton1Click:Connect(function()
 		for _, thread in ipairs(RunningExecutorThreads) do pcall(function() task.cancel(thread) end) end
 		RunningExecutorThreads = {}
 		AppendConsoleLine("WARN", "Terminated all running executor threads.")
+		TerminateBtn.Text = E.Check .. " Stopped"
+		task.delay(0.9, function()
+			if TerminateBtn and TerminateBtn.Parent then TerminateBtn.Text = E.Stop .. " Terminate" end
+		end)
 	end)
-
-	FUI.ExecutorBridge = {
-		GetActiveScript = function()
-			CommitActiveTabBuffer()
-			local nm = (ActiveTabRef and ActiveTabRef.Name and ActiveTabRef.Name ~= "") and ActiveTabRef.Name or "Saved Script"
-			local src = ActiveCodeBox and ActiveCodeBox.Text or ""
-			return nm, src
-		end,
-		RunScript = ExecuteSourceWithLogging,
-		LoadIntoNewTab = function(name, codeStr)
-			SanitizeExecutorTabs()
-			CommitActiveTabBuffer()
-			table.insert(savedConfig.ExecutorTabs, { Name = tostring(name or "Script"), Code = tostring(codeStr or "") })
-			savedConfig.ActiveExecutorTab = #savedConfig.ExecutorTabs
-			RebuildExecutorTabs()
-			SaveConfig(false)
-			AppendConsoleLine("OUT", "Loaded '" .. tostring(name) .. "' into new tab.")
-			if FUI.SwitchToTab then FUI.SwitchToTab("Script Executor") end
-		end
-	}
 
 	RebuildExecutorTabs()
 end
-if FUI.SetLoadProgress then FUI.SetLoadProgress(80, "Loading Multi-Tab Script Executor...") end
+if FUI.SetLoadProgress then FUI.SetLoadProgress(82, "Loading Multi-Tab Script Executor...") end
 xpcall(SetupTab8, warn)
-
-local function SetupTab11()
-	CreateSectionHeader(Tab11_Library, "Saved Scripts & Favorites Library (Pin " .. E.Star .. " | One-Click Run, Load or Copy)", 1)
-	if type(savedConfig.ExecutorLibrary) ~= "table" then savedConfig.ExecutorLibrary = {} end
-
-	local LibControlsCard = CreateCard(Tab11_Library, 86, 2)
-	local LibSearchBox = Instance.new("TextBox", LibControlsCard)
-	LibSearchBox.Size = UDim2.new(1, -20, 0, 30)
-	LibSearchBox.Position = UDim2.new(0, 10, 0, 8)
-	LibSearchBox.PlaceholderText = E.Search .. " Search saved & favorite scripts..."
-	LibSearchBox.Text = ""
-	LibSearchBox.ClearTextOnFocus = false
-	LibSearchBox.Font = Enum.Font.GothamSemibold
-	LibSearchBox.TextSize = 12
-	LibSearchBox.TextXAlignment = Enum.TextXAlignment.Left
-	RegisterThemeObject(LibSearchBox, "BackgroundColor3", "PanelBg")
-	RegisterThemeObject(LibSearchBox, "TextColor3", "TextPrimary")
-	RegisterThemeObject(LibSearchBox, "PlaceholderColor3", "TextSecondary")
-	AddCorner(LibSearchBox, 6)
-	local lsp = Instance.new("UIPadding", LibSearchBox)
-	lsp.PaddingLeft = UDim.new(0, 8)
-
-	local SaveActiveBtn = MakeButton(LibControlsCard, UDim2.new(0.5, -14, 0, 32), UDim2.new(0, 10, 0, 46), E.Plus .. " Save Active Executor Tab", "Accent", 11)
-	local FilterFavBtn = MakeButton(LibControlsCard, UDim2.new(0.5, -14, 0, 32), UDim2.new(0.5, 4, 0, 46), E.Star .. " Filter: All Scripts", "PanelBg", 11)
-
-	local LibScrollCard = CreateCard(Tab11_Library, 270, 3)
-	LibScrollCard.ClipsDescendants = true
-	local LibScroll = Instance.new("ScrollingFrame", LibScrollCard)
-	LibScroll.Size = UDim2.new(1, -16, 1, -16)
-	LibScroll.Position = UDim2.new(0, 8, 0, 8)
-	LibScroll.BackgroundTransparency = 0.20
-	LibScroll.BorderSizePixel = 0
-	LibScroll.ScrollBarThickness = 6
-	LibScroll.ScrollingEnabled = true
-	LibScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
-	LibScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-	LibScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-	LibScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-	RegisterThemeObject(LibScroll, "BackgroundColor3", "PanelBg")
-	RegisterThemeObject(LibScroll, "ScrollBarImageColor3", "Accent")
-	AddCorner(LibScroll, 6)
-
-	local LibListLayout = Instance.new("UIListLayout", LibScroll)
-	LibListLayout.Padding = UDim.new(0, 6)
-	LibListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local LibListPad = Instance.new("UIPadding", LibScroll)
-	LibListPad.PaddingTop = UDim.new(0, 6) LibListPad.PaddingBottom = UDim.new(0, 6)
-	LibListPad.PaddingLeft = UDim.new(0, 6) LibListPad.PaddingRight = UDim.new(0, 6)
-
-	local showOnlyFavs = false
-
-	local function RebuildLibraryUI()
-		for _, ch in ipairs(LibScroll:GetChildren()) do
-			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
-		end
-		local q = tostring(LibSearchBox.Text or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-		local sorted = {}
-		for i, item in ipairs(savedConfig.ExecutorLibrary) do
-			if type(item) == "table" then
-				local isFav = (item.Favorite == true)
-				local nm = tostring(item.Name or ("Saved " .. i))
-				if (not showOnlyFavs or isFav) and (q == "" or nm:lower():find(q, 1, true)) then
-					table.insert(sorted, { Item = item, OrigIdx = i })
-				end
-			end
-		end
-		table.sort(sorted, function(a, b)
-			local fa = (a.Item.Favorite == true)
-			local fb = (b.Item.Favorite == true)
-			if fa ~= fb then return fa end
-			return tostring(a.Item.Name or ""):lower() < tostring(b.Item.Name or ""):lower()
-		end)
-		local th = GetTheme()
-		FUI.TweenButtonState(FilterFavBtn, showOnlyFavs and th.Accent or th.PanelBg, nil, showOnlyFavs)
-		FilterFavBtn.Text = showOnlyFavs and (E.Star .. " Filter: Favorites Only") or (E.Star .. " Filter: All Scripts")
-
-		if #sorted == 0 then
-			local emptyLbl = MakeLabel(LibScroll, UDim2.new(1, -12, 0, 36), nil, "No saved scripts found. Click '+ Save Active Executor Tab' above to save one.", Enum.Font.GothamSemibold, 11, "TextSecondary", Enum.TextXAlignment.Center)
-			emptyLbl.TextWrapped = true
-			LibScroll.CanvasSize = UDim2.new(0, 0, 0, 50)
-			return
-		end
-		for orderIdx, entry in ipairs(sorted) do
-			local item = entry.Item
-			local row = Instance.new("Frame", LibScroll)
-			row.LayoutOrder = orderIdx
-			row.Size = UDim2.new(1, -6, 0, 44)
-			row.BackgroundTransparency = 0.08
-			row.BorderSizePixel = 0
-			row.BackgroundColor3 = th.CardBg
-			AddCorner(row, 8)
-			local rStroke = Instance.new("UIStroke", row)
-			rStroke.Thickness = 1
-			rStroke.Transparency = item.Favorite and 0.15 or 0.55
-			rStroke.Color = item.Favorite and th.Accent or th.Stroke
-
-			local favBtn = Instance.new("TextButton", row)
-			favBtn.Size = UDim2.new(0, 28, 0, 28)
-			favBtn.Position = UDim2.new(0, 6, 0.5, -14)
-			favBtn.BackgroundTransparency = 1
-			favBtn.Font = Enum.Font.GothamBold
-			favBtn.TextSize = 16
-			favBtn.Text = E.Star
-			favBtn.TextColor3 = item.Favorite and Color3.fromRGB(255, 205, 55) or th.TextSecondary
-			favBtn.MouseButton1Click:Connect(function()
-				item.Favorite = not item.Favorite
-				SaveConfig(false)
-				RebuildLibraryUI()
-			end)
-
-			local nmLbl = MakeLabel(row, UDim2.new(1, -296, 0, 20), UDim2.new(0, 36, 0, 4), tostring(item.Name or "Script"), Enum.Font.GothamBold, 12, "TextPrimary", Enum.TextXAlignment.Left)
-			nmLbl.TextTruncate = Enum.TextTruncate.AtEnd
-			local charLen = #(tostring(item.Code or ""))
-			local autoTag = item.AutoRun and " | Auto-Run" or ""
-			local subLbl = MakeLabel(row, UDim2.new(1, -296, 0, 16), UDim2.new(0, 36, 0, 24), string.format("%d chars  |  %s%s", charLen, item.Favorite and "Favorite" or "Saved", autoTag), Enum.Font.Gotham, 10, "TextSecondary", Enum.TextXAlignment.Left)
-			subLbl.TextTruncate = Enum.TextTruncate.AtEnd
-
-			local autoBtn = MakeButton(row, UDim2.new(0, 54, 0, 28), UDim2.new(1, -252, 0.5, -14), item.AutoRun and "Auto:ON" or "Auto", nil, 10)
-			FUI.TweenButtonState(autoBtn, item.AutoRun and Color3.fromRGB(38, 178, 102) or th.PanelBg, Color3.fromRGB(255, 255, 255), item.AutoRun == true)
-			autoBtn.MouseButton1Click:Connect(function()
-				item.AutoRun = not (item.AutoRun == true)
-				SaveConfig(false)
-				RebuildLibraryUI()
-				NotifyFeatureToggle("Auto-Run: " .. tostring(item.Name or "Script"), item.AutoRun)
-			end)
-
-			local runBtn = MakeButton(row, UDim2.new(0, 56, 0, 28), UDim2.new(1, -192, 0.5, -14), E.Play .. " Run", "Accent", 11)
-			runBtn.MouseButton1Click:Connect(function()
-				if FUI.ExecutorBridge and FUI.ExecutorBridge.RunScript then
-					FUI.ExecutorBridge.RunScript(item.Code or "", item.Name)
-				end
-			end)
-
-			local loadBtn = MakeButton(row, UDim2.new(0, 54, 0, 28), UDim2.new(1, -132, 0.5, -14), "Load", "AccentDark", 11)
-			loadBtn.MouseButton1Click:Connect(function()
-				if FUI.ExecutorBridge and FUI.ExecutorBridge.LoadIntoNewTab then
-					FUI.ExecutorBridge.LoadIntoNewTab(item.Name, item.Code or "")
-				end
-			end)
-
-			local copyBtn = MakeButton(row, UDim2.new(0, 34, 0, 28), UDim2.new(1, -74, 0.5, -14), E.Clip, "PanelBg", 12)
-			copyBtn.MouseButton1Click:Connect(function()
-				SafeClipboard(tostring(item.Code or ""))
-				copyBtn.Text = E.Check
-				task.delay(0.9, function() if copyBtn and copyBtn.Parent then copyBtn.Text = E.Clip end end)
-			end)
-
-			local delBtn = Instance.new("TextButton", row)
-			delBtn.Size = UDim2.new(0, 30, 0, 28)
-			delBtn.Position = UDim2.new(1, -36, 0.5, -14)
-			delBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
-			delBtn.BorderSizePixel = 0
-			delBtn.Font = Enum.Font.GothamBold
-			delBtn.TextSize = 12
-			delBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-			delBtn.Text = E.Trash
-			AddCorner(delBtn, 6)
-			FUI.AttachSpringAndRipple(delBtn)
-			delBtn.MouseButton1Click:Connect(function()
-				for k = #savedConfig.ExecutorLibrary, 1, -1 do
-					if savedConfig.ExecutorLibrary[k] == item then
-						table.remove(savedConfig.ExecutorLibrary, k)
-						break
-					end
-				end
-				SaveConfig(false)
-				RebuildLibraryUI()
-			end)
-		end
-		LibScroll.CanvasSize = UDim2.new(0, 0, 0, (#sorted * 50) + 16)
-	end
-
-	table.insert(ThemeObjects.CustomCallbacks, RebuildLibraryUI)
-	LibSearchBox:GetPropertyChangedSignal("Text"):Connect(RebuildLibraryUI)
-	FilterFavBtn.MouseButton1Click:Connect(function()
-		showOnlyFavs = not showOnlyFavs
-		RebuildLibraryUI()
-	end)
-	SaveActiveBtn.MouseButton1Click:Connect(function()
-		if not FUI.ExecutorBridge or not FUI.ExecutorBridge.GetActiveScript then return end
-		local nm, src = FUI.ExecutorBridge.GetActiveScript()
-		if not src or src == "" then
-			SaveActiveBtn.Text = E.Close .. " Active Tab Empty"
-			task.delay(1.0, function() if SaveActiveBtn and SaveActiveBtn.Parent then SaveActiveBtn.Text = E.Plus .. " Save Active Executor Tab" end end)
-			return
-		end
-		table.insert(savedConfig.ExecutorLibrary, 1, { Name = nm, Code = src, Favorite = false })
-		SaveConfig(false)
-		RebuildLibraryUI()
-		SaveActiveBtn.Text = E.Check .. " Saved to Library!"
-		NotifyFeatureToggle("Saved Script: " .. nm, true)
-		task.delay(1.0, function() if SaveActiveBtn and SaveActiveBtn.Parent then SaveActiveBtn.Text = E.Plus .. " Save Active Executor Tab" end end)
-	end)
-	RebuildLibraryUI()
-end
-if FUI.SetLoadProgress then FUI.SetLoadProgress(85, "Loading Saved Scripts Library...") end
-xpcall(SetupTab11, warn)
 local function SetupTab9()
 local listUpdateDelay = 5
 local notificationsEnabled = true
@@ -17009,18 +16919,6 @@ end
 if FUI.FinishLoader then FUI.FinishLoader() end
 MainFrame.Visible = false
 SetMenuVisible(true)
-task.delay(0.35, function()
-	if isClosingPermanently or type(savedConfig.ExecutorLibrary) ~= "table" then return end
-	for _, item in ipairs(savedConfig.ExecutorLibrary) do
-		if isClosingPermanently then break end
-		if type(item) == "table" and item.AutoRun == true and type(item.Code) == "string" and #item.Code > 0 then
-			if FUI.ExecutorBridge and FUI.ExecutorBridge.RunScript then
-				pcall(FUI.ExecutorBridge.RunScript, item.Code, "[Auto-Run] " .. tostring(item.Name or "Script"))
-			end
-			task.wait(0.15)
-		end
-	end
-end)
 genv.TRHub = { ScreenGui = ScreenGui, MainFrame = MainFrame, Tabs = Tabs, Config = Config,
 	SavedConfig = savedConfig, SaveConfig = SaveConfig, Connections = Connections,
 	CreateTab = CreateTab, CreateSectionHeader = CreateSectionHeader, CreateCard = CreateCard,
