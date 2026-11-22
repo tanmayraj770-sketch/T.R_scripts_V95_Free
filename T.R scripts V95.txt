@@ -52,12 +52,21 @@ local function DeepCleanup(forcePurgeAll)
 				if (targets[ch.Name] or ch.Name:find("RobloxGui_") or ch.Name:find("AssetAdornment") or ch.Name:find("AssetOutline")) and ch:GetAttribute("_TRToken") ~= INSTANCE_TOKEN then
 					pcall(function() ch:Destroy() end) end end end) end
 	if gethui then pcall(function() purge(gethui()) end) end pcall(function() purge(CoreGui) end)
-	pcall(function() purge(player:FindFirstChildOfClass("PlayerGui")) end) pcall(function()
-		for _, obj in ipairs(workspace:GetChildren()) do
-			if obj.Name == "TR_FakeFloor" or obj.Name == "TR_Floor" or obj.Name == "TR_WaypointBeacons" then obj:Destroy() end end end)
-	pcall(function() for _, plr in ipairs(Players:GetPlayers()) do
-			local esp = plr.Character and (plr.Character:FindFirstChild("TR_ESP_Highlight") or plr.Character:FindFirstChild("AssetHighlight"))
-			if esp then esp:Destroy() end end end) end DeepCleanup() local function GetSafeGuiParent(targetGui)
+	pcall(function() purge(player:FindFirstChildOfClass("PlayerGui")) end)
+	task.defer(function()
+		pcall(function()
+			for _, obj in ipairs(workspace:GetChildren()) do
+				if obj.Name == "TR_FakeFloor" or obj.Name == "TR_Floor" or obj.Name == "TR_WaypointBeacons" then obj:Destroy() end
+			end
+		end)
+		pcall(function()
+			for _, plr in ipairs(Players:GetPlayers()) do
+				local esp = plr.Character and (plr.Character:FindFirstChild("TR_ESP_Highlight") or plr.Character:FindFirstChild("AssetHighlight"))
+				if esp then esp:Destroy() end
+			end
+		end)
+	end)
+end DeepCleanup() local function GetSafeGuiParent(targetGui)
 	if gethui then local ok, hui = pcall(gethui) if ok and hui then return hui end end
 	local protector = (syn and syn.protect_gui) or protect_gui or protectgui or (fluxus and fluxus.protect_gui)
 	if protector and targetGui then pcall(protector, targetGui) end
@@ -580,12 +589,12 @@ do
 	loaderBackdrop.Size = UDim2.new(1, 0, 1, 0)
 	loaderBackdrop.Position = UDim2.new(0, 0, 0, 0)
 	loaderBackdrop.BackgroundColor3 = Color3.fromRGB(4, 6, 12)
-	loaderBackdrop.BackgroundTransparency = 1
+	loaderBackdrop.BackgroundTransparency = 0.78
 	loaderBackdrop.BorderSizePixel = 0
 	loaderBackdrop.ClipsDescendants = true
 	loaderBackdrop.ZIndex = 945
 	loaderBackdrop.Parent = ScreenGui
-	TweenService:Create(loaderBackdrop, TweenInfo.new(0.42, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+	TweenService:Create(loaderBackdrop, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		BackgroundTransparency = 0.50
 	}):Play()
 
@@ -655,10 +664,11 @@ do
 	AddCorner(loaderFrame, 16)
 
 	local loaderScale = Instance.new("UIScale")
-	loaderScale.Scale = 0.80
+	loaderScale.Scale = 0.90
 	loaderScale.Parent = loaderFrame
-	TweenService:Create(loaderScale, TweenInfo.new(0.46, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	TweenService:Create(auraScale, TweenInfo.new(0.50, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	auraScale.Scale = 0.90
+	TweenService:Create(loaderScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(auraScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 
 	local loaderStroke = Instance.new("UIStroke")
 	loaderStroke.Thickness = 2.5
@@ -1083,6 +1093,7 @@ do
 	local animAccum = 0
 	local rotAngle = 0
 	local shownPct = 0
+	local targetLoadPct = 0
 	local stageCount = 0
 	local loaderAnimConn = RunService.RenderStepped:Connect(function(dt)
 		if not loaderFrame or not loaderFrame.Parent then return end
@@ -1122,6 +1133,11 @@ do
 			pt.Obj.Position = UDim2.new(px, 0, pt.Y, 0)
 			pt.Obj.BackgroundTransparency = 0.35 + ((math.sin(now * 2.5 + pt.Phase) + 1) * 0.25)
 		end
+		if shownPct < targetLoadPct then
+			shownPct = math.min(targetLoadPct, shownPct + math.max(1.5, (targetLoadPct - shownPct) * math.min(1, stepDt * 18)))
+			pctLbl.Text = tostring(math.floor(shownPct + 0.5)) .. "%"
+			updateSegDots(shownPct)
+		end
 		timerLbl.Text = string.format("%.1fs", now - bootStart)
 	end)
 	table.insert(Connections, loaderAnimConn)
@@ -1150,42 +1166,35 @@ do
 		end
 	end
 
-	local LOADER_BAR_TI = TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local STATUS_SLIDE_TI = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	local POP_TI = TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local LOADER_BAR_TI = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local STATUS_SLIDE_TI = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	local POP_TI = TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	FUI.SetLoadProgress = function(pct, msg)
 		if isClosingPermanently or not loaderFrame or not loaderFrame.Parent then return end
 		local targetPct = math.clamp(tonumber(pct) or 0, 0, 100)
+		targetLoadPct = targetPct
 		stageCount = math.min(stageCount + 1, 13)
 		stageLbl.Text = string.format("STAGE %d / 13", stageCount)
-		emblemPodScale.Scale = 1.13
+		emblemPodScale.Scale = 1.11
 		FUI.SafeTween(emblemPodScale, POP_TI, { Scale = 1.0 })
-		pctScale.Scale = 1.09
+		pctScale.Scale = 1.07
 		FUI.SafeTween(pctScale, POP_TI, { Scale = 1.0 })
 		if msg then
 			statusLbl.Text = tostring(msg)
-			statusLbl.Position = UDim2.new(0, 26, 0, 0)
+			statusLbl.Position = UDim2.new(0, 22, 0, 0)
 			FUI.SafeTween(statusLbl, STATUS_SLIDE_TI, { Position = UDim2.new(0, 15, 0, 0) })
 		end
 		FUI.SafeTween(barFill, LOADER_BAR_TI, { Size = UDim2.new(targetPct / 100, 0, 1, 0) })
-		local startPct = shownPct
-		local steps = 5
-		for s = 1, steps do
-			if isClosingPermanently or not loaderFrame or not loaderFrame.Parent then return end
-			local cur = startPct + ((targetPct - startPct) * (s / steps))
-			shownPct = cur
-			pctLbl.Text = tostring(math.floor(cur + 0.5)) .. "%"
-			updateSegDots(cur)
-			task.wait(0.036)
-		end
 		shownPct = targetPct
 		pctLbl.Text = tostring(math.floor(targetPct + 0.5)) .. "%"
 		updateSegDots(targetPct)
-		RunService.Heartbeat:Wait()
+		pcall(function() RunService.RenderStepped:Wait() end)
 	end
 
 	FUI.FinishLoader = function()
 		if not loaderFrame or not loaderFrame.Parent then return end
+		targetLoadPct = 100
+		shownPct = 100
 		stageLbl.Text = "STAGE 13 / 13"
 		pctLbl.Text = "100%"
 		statusLbl.Text = E.Check .. " T.R scripts V95 Ready!"
@@ -1193,25 +1202,26 @@ do
 		statusPulse.BackgroundTransparency = 0
 		footerHint.Text = E.Sparkle .. " All modules loaded smoothly — launching hub..."
 		updateSegDots(100)
-		FUI.SafeTween(barFill, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		FUI.SafeTween(barFill, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size = UDim2.new(1, 0, 1, 0)
 		})
-		emblemPodScale.Scale = 1.20
+		emblemPodScale.Scale = 1.16
 		FUI.SafeTween(emblemPodScale, POP_TI, { Scale = 1.0 })
-		TweenService:Create(loaderScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.04 }):Play()
-		task.wait(0.48)
+		TweenService:Create(loaderScale, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.03 }):Play()
+		task.wait(0.18)
 		if loaderAnimConn then pcall(function() loaderAnimConn:Disconnect() end) end
-		TweenService:Create(loaderScale, TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.84 }):Play()
-		TweenService:Create(auraScale, TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.84 }):Play()
-		TweenService:Create(loaderFrame, TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(auraFrame, TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(loaderBackdrop, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-		task.delay(0.34, function()
+		TweenService:Create(loaderScale, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.86 }):Play()
+		TweenService:Create(auraScale, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.86 }):Play()
+		TweenService:Create(loaderFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(auraFrame, TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(loaderBackdrop, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.24, function()
 			if loaderFrame and loaderFrame.Parent then loaderFrame:Destroy() end
 			if auraFrame and auraFrame.Parent then auraFrame:Destroy() end
 			if loaderBackdrop and loaderBackdrop.Parent then loaderBackdrop:Destroy() end
 		end)
 	end
+	pcall(function() RunService.RenderStepped:Wait() end)
 end
 local MIN_WIDTH, MIN_HEIGHT = 560, 360
 local MAX_WIDTH, MAX_HEIGHT = 1150, 820
@@ -10602,7 +10612,7 @@ local function SetupTab12()
 		end)
 	end
 	FUI.RefreshEmotesTab = RebuildEmotesGrid
-	loadEmoteCatalogs()
+	task.defer(loadEmoteCatalogs)
 end
 if FUI.SetLoadProgress then FUI.SetLoadProgress(84, "Loading Emotes & Animation Packs...") end
 xpcall(SetupTab12, warn)
