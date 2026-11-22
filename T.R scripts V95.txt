@@ -17,7 +17,7 @@ pcall(function() userGameSettings = UserSettings():GetService("UserGameSettings"
 local U = utf8.char local E = { Bolt    = U(0x26A1), Save    = U(0x1F4BE), Check   = U(0x2714),
 	Dash    = U(0x2014), Close   = U(0x00D7), Chart   = U(0x1F4CA), Pin     = U(0x1F4CD),
 	Radar   = U(0x1F4E1), Gem     = U(0x1F48E), Rocket  = U(0x1F680), Eye     = U(0x1F441),
-	Laptop  = U(0x1F4BB), Sun     = U(0x1F31E), Moon    = U(0x1F319), Unlock  = U(0x1F513),
+	Laptop  = U(0x1F4BB), Sun     = U(0x1F31E), Moon    = U(0x1F319), Lock    = U(0x1F512), Unlock  = U(0x1F513),
 	Clip    = U(0x1F4CB), Plus    = U(0x2795), Trash   = U(0x1F5D1), Star    = U(0x2B50),
 	Search  = U(0x1F50D), Refresh = U(0x1F504), Magnet  = U(0x1F9F2), Box     = U(0x1F4E6),
 	Play    = U(0x25B6), Broom   = U(0x1F9F9), Stop    = U(0x23F9), Tick    = U(0x2713),
