@@ -87,13 +87,14 @@ local CONFIG_FILENAME = "TRScripts_Config_V100.json" local FALLBACK_FILES = {
 		CountdownBypass = false, AntiAFK = true, InstantPrompt = false, ESPEnabled = false,
 		FullbrightEnabled = false, NoFogEnabled = false, CameraOverrideMode = "Free / Unlocked", LockedTime = nil,
 		FpsBoosterEnabled = false, TelemetryHudEnabled = false, TelemetryHudLocked = false,
-		TelemetryHudWidth = 248, TelemetryHudHeight = 114, WaypointScope = "ThisGame", WaypointBeaconsEnabled = false, ToggleNotifsEnabled = true, RadialWheelEnabled = true, RadialWheelKeybind = "V", FocusPowerSaverEnabled = true }, Waypoints = {
+		TelemetryHudWidth = 248, TelemetryHudHeight = 114, WaypointScope = "ThisGame", WaypointBeaconsEnabled = false, ToggleNotifsEnabled = true, RadialWheelEnabled = true, RadialWheelKeybind = "V", RadialWheelScale = 100, FocusPowerSaverEnabled = true, ZoomBinocularsEnabled = true, ZoomKeybind = "B", ZoomTargetFOV = 20 }, Waypoints = {
 		{ Name = "Spawn Point", X = 0, Y = 50, Z = 0, Keybind = "None", PlaceId = 0 } }, RadarKeybinds = {},
 	ExecutorTabs = {
 		{ Name = "Script 1", Code = "print('T.R Scripts V95 Ready!')" } },
 	ExecutorLibrary = {
 		{ Name = "Hello Test", Code = "print('Hello from T.R Scripts V95 Library!')", Favorite = true } },
 	FavoriteFunctions = {},
+	RadialWheelItems = {},
 	ActiveExecutorTab = 1 }
 local savedConfig = HttpService:JSONDecode(HttpService:JSONEncode(DefaultConfig))
 local Config = savedConfig.Settings local SaveFeedbackCallback = nil
@@ -132,11 +133,14 @@ local function syncAllSystems() SaveConfig(false) end local function LoadConfig(
 					if type(decoded.ExecutorTabs) == "table" then savedConfig.ExecutorTabs = decoded.ExecutorTabs end
 					if type(decoded.ExecutorLibrary) == "table" then savedConfig.ExecutorLibrary = decoded.ExecutorLibrary end
 					if type(decoded.FavoriteFunctions) == "table" then savedConfig.FavoriteFunctions = decoded.FavoriteFunctions end
+					if type(decoded.RadialWheelItems) == "table" then savedConfig.RadialWheelItems = decoded.RadialWheelItems end
 					if type(decoded.ActiveExecutorTab) == "number" then savedConfig.ActiveExecutorTab = decoded.ActiveExecutorTab end
 				end end end end)
 	if not savedConfig.Settings.FreecamKeybind then savedConfig.Settings.FreecamKeybind = "C" end
 	if not savedConfig.Settings.FreecamSpeed then savedConfig.Settings.FreecamSpeed = 60 end
 	if type(savedConfig.Settings.RadialWheelKeybind) ~= "string" or savedConfig.Settings.RadialWheelKeybind == "" then savedConfig.Settings.RadialWheelKeybind = "V" end
+	if type(savedConfig.Settings.ZoomKeybind) ~= "string" or savedConfig.Settings.ZoomKeybind == "" then savedConfig.Settings.ZoomKeybind = "B" end
+	savedConfig.Settings.ZoomTargetFOV = math.clamp(tonumber(savedConfig.Settings.ZoomTargetFOV) or 20, 5, 65)
 	if savedConfig.Settings.Animation ~= "Default" and savedConfig.Settings.Animation ~= "Windows" and savedConfig.Settings.Animation ~= "macOS" then
 		savedConfig.Settings.Animation = "Default"
 	end
@@ -303,27 +307,29 @@ end
 local FUI = { IsInitializing = true }
 FUI._ActiveTweens = setmetatable({}, { __mode = "k" })
 FUI.TI = {
-	Theme = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	HoverIn = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	HoverOut = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	Press = TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	Release = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	Click = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	State = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	Dot = TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	Ripple = TweenInfo.new(0.42, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-	TagPop = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	LoaderBar = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	TabBtn = TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-	TabPage = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-	CardHover = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	ToggleKnob = TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	SliderSet = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	NotifIn = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	NotifRefresh = TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-	NotifOut = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
-	NotifScaleOut = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-	NotifDrain = TweenInfo.new(2.15, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+	Theme = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	HoverIn = TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	HoverOut = TweenInfo.new(0.20, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	Press = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	Release = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	Click = TweenInfo.new(0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	State = TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	Dot = TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	Ripple = TweenInfo.new(0.46, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out),
+	TagPop = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	LoaderBar = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	TabBtn = TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	TabPage = TweenInfo.new(0.26, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out),
+	CardHover = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	ToggleKnob = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	SliderSet = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	NotifIn = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	NotifRefresh = TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	NotifOut = TweenInfo.new(0.22, Enum.EasingStyle.Exponential, Enum.EasingDirection.In),
+	NotifScaleOut = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+	NotifDrain = TweenInfo.new(2.15, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+	ModalPop = TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	WheelOut = TweenInfo.new(0.14, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 }
 FUI.ToggleHandles = {}
 FUI.SafeTween = function(inst, info, props)
@@ -442,14 +448,14 @@ FUI.AttachSpringAndRipple = function(b)
 		sc.Parent = b
 	end
 	b.MouseEnter:Connect(function()
-		FUI.SafeTween(sc, FUI.TI.HoverIn, { Scale = 1.03 })
+		FUI.SafeTween(sc, FUI.TI.HoverIn, { Scale = 1.045 })
 	end)
 	b.MouseLeave:Connect(function()
 		FUI.SafeTween(sc, FUI.TI.HoverOut, { Scale = 1.0 })
 	end)
 	b.InputBegan:Connect(function(inp)
 		if inp.UserInputType == Enum.UserInputType.Touch or inp.UserInputType == Enum.UserInputType.MouseButton1 then
-			FUI.SafeTween(sc, FUI.TI.Press, { Scale = 0.92 })
+			FUI.SafeTween(sc, FUI.TI.Press, { Scale = 0.93 })
 			pcall(function()
 				local clip = b:FindFirstChild("_TRRippleClip")
 				if not clip then
@@ -468,8 +474,8 @@ FUI.AttachSpringAndRipple = function(b)
 				ripple.AnchorPoint = Vector2.new(0.5, 0.5)
 				ripple.Position = UDim2.new(0, relX, 0, relY)
 				ripple.Size = UDim2.new(0, 0, 0, 0)
-				ripple.BackgroundColor3 = GetTheme().Stroke
-				ripple.BackgroundTransparency = 0.45
+				ripple.BackgroundColor3 = GetTheme().Accent:Lerp(Color3.fromRGB(255, 255, 255), 0.55)
+				ripple.BackgroundTransparency = 0.36
 				ripple.BorderSizePixel = 0
 				ripple.ZIndex = b.ZIndex + 1
 				ripple.Parent = clip
@@ -1617,13 +1623,15 @@ local function SetMenuVisible(state, onComplete, forceAnim) if isClosingPermanen
 			end)
 		else
 			if not wasVisible then
-				MainScale.Scale = 0 MainFrame.Position = RestingPosition
-				MainFrame.BackgroundTransparency = 1 MainStroke.Transparency = 1
+				MainScale.Scale = targetScale * 0.84
+				MainFrame.Position = UDim2.new(RestingPosition.X.Scale, RestingPosition.X.Offset, RestingPosition.Y.Scale, RestingPosition.Y.Offset + 18)
+				MainFrame.BackgroundTransparency = 0.85 MainStroke.Transparency = 0.90
 			end
-			local info = TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-			local t1 = TweenService:Create(MainScale, info, { Scale = targetScale })
-			local t2 = TweenService:Create(MainFrame, info, { Position = RestingPosition, BackgroundTransparency = targetBgTrans })
-			local t3 = TweenService:Create(MainStroke, info, { Transparency = targetStrokeTrans })
+			local infoScale = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			local infoPos = TweenInfo.new(0.30, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
+			local t1 = TweenService:Create(MainScale, infoScale, { Scale = targetScale })
+			local t2 = TweenService:Create(MainFrame, infoPos, { Position = RestingPosition, BackgroundTransparency = targetBgTrans })
+			local t3 = TweenService:Create(MainStroke, infoPos, { Transparency = targetStrokeTrans })
 			activeWindowTweens = { t1, t2, t3 } t1:Play() t2:Play() t3:Play() t1.Completed:Connect(function(st)
 				if st == Enum.PlaybackState.Completed and onComplete then onComplete() end end)
 		end
@@ -2065,7 +2073,8 @@ do
 		local menuVis = (isMenuVisible == true and MainFrame.Visible == true)
 		local pillVis = (FloatingPill ~= nil and FloatingPill.Visible == true)
 		local sqVis = (MobileSquareIcon ~= nil and MobileSquareIcon.Visible == true)
-		if not menuVis and not pillVis and not sqVis then return end
+		local hudVis = (FUI.TelemetryHudFrame ~= nil and FUI.TelemetryHudFrame.Visible == true)
+		if not menuVis and not pillVis and not sqVis and not hudVis then return end
 		local now = os.clock()
 		local interval = Config.FpsBoosterEnabled and 0.25 or 0.066
 		if now - lastUiAnimTick < interval then return end
@@ -2106,6 +2115,9 @@ do
 			if FUI.SquareStrokeGrad then FUI.SquareStrokeGrad.Rotation = rot end
 			if FUI.SquareHaloGrad then FUI.SquareHaloGrad.Rotation = haloRot end
 			if FUI.SquareHaloStroke then FUI.SquareHaloStroke.Transparency = baseHaloT + (breathe * 0.10) end
+		end
+		if hudVis and FUI._TelemetryStrokeGrad then
+			FUI._TelemetryStrokeGrad.Rotation = rot
 		end
 		if menuVis then
 			if FUI.TopTitleGrad then
@@ -3311,13 +3323,15 @@ local function CreateCard(parent, height, order)
 	Stroke.Transparency = 0.6 Stroke.Parent = Card RegisterThemeObject(Stroke, "Color", "Stroke")
 	Card.MouseEnter:Connect(function()
 		local curD = Config.GuiDesign or "Default"
-		local hoverTrans = (curD == "CyberHud" and 0.0) or (curD == "LiquidGlass" and 0.08) or 0.22
-		FUI.SafeTween(Stroke, FUI.TI.CardHover, { Transparency = hoverTrans })
+		local th = GetTheme()
+		local hoverTrans = (curD == "CyberHud" and 0.0) or (curD == "LiquidGlass" and 0.06) or 0.16
+		FUI.SafeTween(Stroke, FUI.TI.CardHover, { Transparency = hoverTrans, Thickness = 1.45, Color = th.Accent })
 	end)
 	Card.MouseLeave:Connect(function()
 		local curD = Config.GuiDesign or "Default"
+		local th = GetTheme()
 		local restTrans = (curD == "CyberHud" and 0.04) or (curD == "LiquidGlass" and 0.24) or 0.60
-		FUI.SafeTween(Stroke, FUI.TI.HoverOut, { Transparency = restTrans })
+		FUI.SafeTween(Stroke, FUI.TI.HoverOut, { Transparency = restTrans, Thickness = 1.0, Color = th.Stroke })
 	end)
 	return Card
 end local RightNotifHolder = Instance.new("Frame")
@@ -3629,15 +3643,140 @@ FUI.ToggleFavoriteFunction = function(funcName)
 	end
 end
 
+local CIRCLE_EMPTY = U(0x25CB)
+local CIRCLE_FILLED = U(0x25CF)
+FUI.RadialCircleButtons = {}
+
+FUI.IsItemInRadialWheel = function(itemKey)
+	if type(savedConfig.RadialWheelItems) ~= "table" then return false end
+	for i = 1, #savedConfig.RadialWheelItems do
+		if savedConfig.RadialWheelItems[i] == itemKey then return true end
+	end
+	return false
+end
+
+FUI.SyncAllRadialCircleButtons = function(targetKey)
+	local th = GetTheme()
+	local function updateList(k, list)
+		local pinned = FUI.IsItemInRadialWheel(k)
+		local writeIdx = 0
+		for i = 1, #list do
+			local b = list[i]
+			if b and b.Parent then
+				writeIdx = writeIdx + 1
+				if writeIdx ~= i then list[writeIdx] = b end
+				b.Text = pinned and CIRCLE_FILLED or CIRCLE_EMPTY
+				b.TextColor3 = pinned and th.Accent or th.TextSecondary
+			end
+		end
+		for i = #list, writeIdx + 1, -1 do list[i] = nil end
+	end
+	if targetKey and FUI.RadialCircleButtons[targetKey] then
+		updateList(targetKey, FUI.RadialCircleButtons[targetKey])
+	else
+		for k, list in pairs(FUI.RadialCircleButtons) do
+			updateList(k, list)
+		end
+	end
+end
+table.insert(ThemeObjects.CustomCallbacks, function() FUI.SyncAllRadialCircleButtons(nil) end)
+
+FUI.RemoveItemFromRadialWheel = function(itemKey)
+	if type(savedConfig.RadialWheelItems) ~= "table" then return end
+	local changed = false
+	for i = #savedConfig.RadialWheelItems, 1, -1 do
+		if savedConfig.RadialWheelItems[i] == itemKey then
+			table.remove(savedConfig.RadialWheelItems, i)
+			changed = true
+		end
+	end
+	if changed then
+		FUI.SyncAllRadialCircleButtons(itemKey)
+		SaveConfig(false)
+	end
+end
+
+FUI.ToggleRadialWheelItem = function(itemKey, displayLabel)
+	if not itemKey or itemKey == "" then return false end
+	if type(savedConfig.RadialWheelItems) ~= "table" then savedConfig.RadialWheelItems = {} end
+	local existingIdx = nil
+	for i = 1, #savedConfig.RadialWheelItems do
+		if savedConfig.RadialWheelItems[i] == itemKey then
+			existingIdx = i
+			break
+		end
+	end
+	local cleanDisp = tostring(displayLabel or itemKey):gsub("^AVATAR:", "")
+	if existingIdx then
+		table.remove(savedConfig.RadialWheelItems, existingIdx)
+		FUI.SyncAllRadialCircleButtons(itemKey)
+		SaveConfig(false)
+		if NotifyFeatureToggle then NotifyFeatureToggle("Wheel Removed: " .. cleanDisp, false) end
+		return false
+	else
+		if not FUI.IsInitializing then
+			for i = #savedConfig.RadialWheelItems, 1, -1 do
+				local k = savedConfig.RadialWheelItems[i]
+				if type(k) ~= "string" or k == "" then
+					table.remove(savedConfig.RadialWheelItems, i)
+				elseif k:sub(1, 7) == "AVATAR:" then
+					if FUI.AvatarWheelBridge and FUI.AvatarWheelBridge.GetAvatarEntry and not FUI.AvatarWheelBridge.GetAvatarEntry(k) then
+						table.remove(savedConfig.RadialWheelItems, i)
+					end
+				elseif not FUI.FavoriteRegistry[k] then
+					table.remove(savedConfig.RadialWheelItems, i)
+				end
+			end
+		end
+		if #savedConfig.RadialWheelItems >= 8 then
+			if NotifyFeatureToggle then NotifyFeatureToggle("Radial Wheel Full (Max 8 Slots)", false) end
+			return false
+		end
+		table.insert(savedConfig.RadialWheelItems, itemKey)
+		FUI.SyncAllRadialCircleButtons(itemKey)
+		SaveConfig(false)
+		if NotifyFeatureToggle then NotifyFeatureToggle("Wheel Pinned: " .. cleanDisp, true) end
+		return true
+	end
+end
+
+FUI.CreateRadialCircleButton = function(parent, itemKey, pos, size, displayLabel)
+	local cBtn = Instance.new("TextButton")
+	cBtn.Name = "TR_RadialCircleBtn"
+	cBtn.Size = size or UDim2.new(0, 22, 0, 19)
+	cBtn.Position = pos or UDim2.new(1, -126, 0.5, 1)
+	cBtn.BackgroundTransparency = 1
+	cBtn.BorderSizePixel = 0
+	cBtn.Font = Enum.Font.GothamBold
+	cBtn.TextSize = 15
+	cBtn.AutoButtonColor = false
+	cBtn.ZIndex = (parent and parent.ZIndex or 2) + 3
+	cBtn.Parent = parent
+	local csc = Instance.new("UIScale", cBtn)
+	csc.Scale = 1
+	if not FUI.RadialCircleButtons[itemKey] then FUI.RadialCircleButtons[itemKey] = {} end
+	table.insert(FUI.RadialCircleButtons[itemKey], cBtn)
+	local pinned = FUI.IsItemInRadialWheel(itemKey)
+	cBtn.Text = pinned and CIRCLE_FILLED or CIRCLE_EMPTY
+	cBtn.TextColor3 = pinned and GetTheme().Accent or GetTheme().TextSecondary
+	cBtn.MouseButton1Click:Connect(function()
+		csc.Scale = 1.35
+		FUI.SafeTween(csc, FUI.TI.ToggleKnob, { Scale = 1.0 })
+		FUI.ToggleRadialWheelItem(itemKey, displayLabel)
+	end)
+	return cBtn
+end
+
 FUI.CreateFavoriteStarButton = function(parent, funcName, pos, size)
+	local basePos = pos or UDim2.new(1, -128, 0.5, -13)
 	local btn = Instance.new("TextButton")
 	btn.Name = "TR_FavStarBtn"
-	btn.Size = size or UDim2.new(0, 26, 0, 26)
-	btn.Position = pos or UDim2.new(1, -128, 0.5, -13)
+	btn.Size = UDim2.new(0, 22, 0, 19)
+	btn.Position = UDim2.new(basePos.X.Scale, basePos.X.Offset + 2, basePos.Y.Scale, basePos.Y.Offset - 7)
 	btn.BackgroundTransparency = 1
 	btn.BorderSizePixel = 0
 	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 17
+	btn.TextSize = 15
 	btn.AutoButtonColor = false
 	btn.ZIndex = (parent and parent.ZIndex or 2) + 3
 	btn.Parent = parent
@@ -3653,6 +3792,7 @@ FUI.CreateFavoriteStarButton = function(parent, funcName, pos, size)
 		FUI.SafeTween(sc, FUI.TI.ToggleKnob, { Scale = 1.0 })
 		FUI.ToggleFavoriteFunction(funcName)
 	end)
+	FUI.CreateRadialCircleButton(parent, funcName, UDim2.new(basePos.X.Scale, basePos.X.Offset + 2, basePos.Y.Scale, basePos.Y.Offset + 13), UDim2.new(0, 22, 0, 19), funcName)
 	return btn
 end
 
@@ -3758,7 +3898,7 @@ local function CreateToggle(parent, labelText, initialValue, order, callback)
 		local targetBg = state and theme.Accent or theme.PanelBg
 		local targetBarSize = state and UDim2.new(0, 4, 1, -12) or UDim2.new(0, 3, 0, 0)
 		if animate and isMenuVisible and not FUI.IsInitializing then
-			Knob.Size = UDim2.new(0, 24, 0, 20)
+			Knob.Size = UDim2.new(0, 26, 0, 18)
 			FUI.SafeTween(Knob, FUI.TI.ToggleKnob, { Position = targetPos, Size = UDim2.new(0, 20, 0, 20) })
 			FUI.SafeTween(StateLbl, FUI.TI.State, { Position = targetTxtPos })
 			FUI.SafeTween(ToggleBtn, FUI.TI.State, { BackgroundColor3 = targetBg })
@@ -3990,6 +4130,9 @@ local function FindKeybindConflict(keyName, ignoreSlot)
 	end
 	if ignoreSlot ~= "RadialWheel" and (Config.RadialWheelKeybind or "V") == keyName then
 		return "Radial Quick-Action Wheel"
+	end
+	if ignoreSlot ~= "ZoomBinoculars" and (Config.ZoomKeybind or "B") == keyName then
+		return "Hold-to-Zoom Binoculars"
 	end
 	if type(savedConfig.Waypoints) == "table" then
 		for idx, wp in ipairs(savedConfig.Waypoints) do
@@ -4527,6 +4670,9 @@ do
 	hudStroke.Color = Color3.fromRGB(255, 255, 255)
 	local hudStrokeGrad = Instance.new("UIGradient", hudStroke)
 	hudStrokeGrad.Rotation = 25
+	FUI._TelemetryStrokeGrad = hudStrokeGrad
+	local hudPopScale = Instance.new("UIScale", TelemetryHud)
+	hudPopScale.Scale = 1.0
 
 	local hudHeader = Instance.new("Frame", TelemetryHud)
 	hudHeader.Size = UDim2.new(1, -12, 0, 28)
@@ -4792,12 +4938,18 @@ do
 		hudCompactBtn.Text = hudCompact and "▴" or "▾"
 		hudBody.Visible = not hudCompact
 		hudResizeHandle.Visible = (not hudLocked) and (not hudCompact)
+		local targetH = hudCompact and 40 or hudExpandedH
+		local targetProps = { Size = UDim2.new(0, TelemetryHud.AbsoluteSize.X, 0, targetH) }
 		if not hudCompact then
 			hudTitle.Text = E.Bolt .. " T.R TELEMETRY"
+			local cam = workspace.CurrentCamera
+			local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+			local ap = TelemetryHud.AbsolutePosition
+			if ap.Y + targetH > vs.Y - 4 then
+				targetProps.Position = UDim2.new(0, math.clamp(ap.X, 4, math.max(4, vs.X - TelemetryHud.AbsoluteSize.X - 4)), 0, math.max(4, vs.Y - targetH - 4))
+			end
 		end
-		FUI.SafeTween(TelemetryHud, FUI.TI.TabPage, {
-			Size = UDim2.new(0, TelemetryHud.AbsoluteSize.X, 0, hudCompact and 40 or hudExpandedH)
-		})
+		FUI.SafeTween(TelemetryHud, FUI.TI.TabPage, targetProps)
 	end)
 
 	local hudDragging, hudDragStart, hudStartPos = false, nil, nil
@@ -4877,7 +5029,12 @@ do
 	hudToggleCtrl = CreateToggle(Tab1_Dashboard, "Floating Mini Telemetry HUD (FPS, Ping, XYZ & Badges | Drag/Resize/Lock)", Config.TelemetryHudEnabled == true, 18, function(state)
 		Config.TelemetryHudEnabled = state
 		savedConfig.Settings.TelemetryHudEnabled = state
-		TelemetryHud.Visible = state and not isClosingPermanently
+		local showHud = state and not isClosingPermanently
+		TelemetryHud.Visible = showHud
+		if showHud then
+			hudPopScale.Scale = 0.84
+			FUI.SafeTween(hudPopScale, FUI.TI.ModalPop, { Scale = 1.0 })
+		end
 		SaveConfig(false)
 	end)
 	CreateToggle(Tab1_Dashboard, "Toggle Feature Notifications (Animated Toast Alerts)", Config.ToggleNotifsEnabled ~= false, 19, function(state)
@@ -4932,7 +5089,7 @@ do
 			local v = sparkHistory[si] or 0
 			local ratio = math.clamp(v / 60, 0.14, 1.0)
 			local bar = sparkBars[si]
-			bar.Size = UDim2.new(1 / SPARK_COUNT, -2, ratio, 0)
+			FUI.SafeTween(bar, FUI.TI.SliderSet, { Size = UDim2.new(1 / SPARK_COUNT, -2, ratio, 0) })
 			bar.BackgroundColor3 = (v >= 50 and Color3.fromRGB(52, 228, 134))
 				or (v >= 30 and Color3.fromRGB(255, 198, 66))
 				or Color3.fromRGB(245, 82, 92)
@@ -4956,7 +5113,7 @@ do
 	local kbResetAllBtn = MakeButton(KeybindCard, UDim2.new(0.32, -10, 0, 28), UDim2.new(0.68, 2, 0, 8), E.Refresh .. " Reset Defaults", "AccentDark", 11)
 
 	local kbListHolder = Instance.new("Frame", KeybindCard)
-	kbListHolder.Size = UDim2.new(1, -20, 0, 282)
+	kbListHolder.Size = UDim2.new(1, -20, 0, 318)
 	kbListHolder.Position = UDim2.new(0, 10, 0, 44)
 	kbListHolder.BackgroundTransparency = 1
 	kbListHolder.Visible = false
@@ -4971,7 +5128,8 @@ do
 		{ Label = "Normal Aimbot", Slot = "Aimbot", Key = "AimbotKeybind", Default = "Q" },
 		{ Label = "Target Player Aimbot", Slot = "TargetAimbot", Key = "TargetAimbotKeybind", Default = "T" },
 		{ Label = "Auto-Shoot / Triggerbot", Slot = "AutoShoot", Key = "AutoShootKeybind", Default = "Z" },
-		{ Label = "Radial Quick-Action Wheel (Hold)", Slot = "RadialWheel", Key = "RadialWheelKeybind", Default = "V" }
+		{ Label = "Radial Quick-Action Wheel (Hold)", Slot = "RadialWheel", Key = "RadialWheelKeybind", Default = "V" },
+		{ Label = "Hold-to-Zoom Binoculars (Hold)", Slot = "ZoomBinoculars", Key = "ZoomKeybind", Default = "B" }
 	}
 	local kbRowButtons = {}
 
@@ -4992,6 +5150,7 @@ do
 		if FUI.RefreshFreecamUI then pcall(FUI.RefreshFreecamUI) end
 		if FUI.RefreshAimbotUI then pcall(FUI.RefreshAimbotUI) end
 		if FUI.RefreshRadialKeyUI then pcall(FUI.RefreshRadialKeyUI) end
+		if FUI.RefreshZoomKeyUI then pcall(FUI.RefreshZoomKeyUI) end
 	end
 
 	for idx, spec in ipairs(keybindSpecs) do
@@ -5043,7 +5202,7 @@ do
 		kbHeaderBtn.Text = E.Bolt .. " Master Keybinds Overview [" .. (kbExpanded and "Collapse" or "Expand") .. "]"
 		kbListHolder.Visible = kbExpanded
 		FUI.SafeTween(KeybindCard, FUI.TI.TabPage, {
-			Size = kbExpanded and UDim2.new(1, 0, 0, 332) or UDim2.new(1, 0, 0, 44)
+			Size = kbExpanded and UDim2.new(1, 0, 0, 368) or UDim2.new(1, 0, 0, 44)
 		})
 		if kbExpanded then RefreshMasterKeybindPanel() end
 	end)
@@ -5060,17 +5219,28 @@ do
 	end)
 end
 
-CreateSectionHeader(Tab1_Dashboard, "Radial Quick-Action Wheel (Hold Key for Top 8 Favorites)", 22)
+CreateSectionHeader(Tab1_Dashboard, "Radial Quick-Action Wheel (Click ○ on Any Function or Saved Avatar)", 22)
 do
 	local GuiService = game:GetService("GuiService")
+	local function GetRadialTargetScale()
+		return math.clamp((tonumber(Config.RadialWheelScale) or 100) / 100, 0.6, 1.5)
+	end
 	CreateToggle(Tab1_Dashboard, "Radial Quick-Action Wheel (Hold Key Around Cursor)", Config.RadialWheelEnabled ~= false, 23, function(state)
 		Config.RadialWheelEnabled = state
 		savedConfig.Settings.RadialWheelEnabled = state
 		if not state and FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
 		SaveConfig(false)
 	end)
+	CreateSlider(Tab1_Dashboard, "Radial Wheel Size (%)", 60, 150, math.clamp(tonumber(Config.RadialWheelScale) or 100, 60, 150), 24, function(val)
+		Config.RadialWheelScale = val
+		savedConfig.Settings.RadialWheelScale = val
+		if FUI._RadialWheelScaleObj and FUI._RadialWheelScaleObj.Parent then
+			FUI._RadialWheelScaleObj.Scale = val / 100
+		end
+		SaveConfig(false)
+	end)
 
-	local RadialKeyCard = CreateCard(Tab1_Dashboard, 44, 24)
+	local RadialKeyCard = CreateCard(Tab1_Dashboard, 44, 25)
 	local rkLbl = MakeLabel(RadialKeyCard, UDim2.new(0.46, -10, 1, 0), UDim2.new(0, 14, 0, 0), "Radial Wheel Hold Key:", Enum.Font.GothamSemibold, 12, "TextPrimary", Enum.TextXAlignment.Left)
 	rkLbl.TextTruncate = Enum.TextTruncate.AtEnd
 	local rkBindBtn = MakeButton(RadialKeyCard, UDim2.new(0.32, -8, 0, 28), UDim2.new(0.46, 2, 0.5, -14), "Hold: [" .. tostring(Config.RadialWheelKeybind or "V") .. "]", "PanelBg", 11)
@@ -5130,7 +5300,8 @@ do
 	WheelRoot.Parent = ScreenGui
 	AddCorner(WheelRoot, HALF_WHEEL)
 	local WheelScale = Instance.new("UIScale", WheelRoot)
-	WheelScale.Scale = 0.78
+	WheelScale.Scale = GetRadialTargetScale()
+	FUI._RadialWheelScaleObj = WheelScale
 	local WheelBgGrad = Instance.new("UIGradient", WheelRoot)
 	WheelBgGrad.Rotation = 135
 	local WheelStroke = Instance.new("UIStroke", WheelRoot)
@@ -5169,6 +5340,8 @@ do
 	local CenterCore = Instance.new("TextButton", WheelRoot)
 	CenterCore.AnchorPoint = Vector2.new(0.5, 0.5)
 	CenterCore.Size = UDim2.new(0, 108, 0, 108)
+	local CenterScale = Instance.new("UIScale", CenterCore)
+	CenterScale.Scale = 1.0
 	CenterCore.Position = UDim2.new(0.5, 0, 0.5, 0)
 	CenterCore.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	CenterCore.BackgroundTransparency = 0.04
@@ -5354,14 +5527,16 @@ do
 			cur.Stroke.Transparency = 0.0
 			cur.Badge.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 			cur.Badge.TextColor3 = th.MainBg
-			FUI.SafeTween(cur.Scale, FUI.TI.HoverIn, { Scale = 1.12 })
+			FUI.SafeTween(cur.Scale, FUI.TI.ToggleKnob, { Scale = 1.14 })
+			CenterScale.Scale = 1.07
+			FUI.SafeTween(CenterScale, FUI.TI.ToggleKnob, { Scale = 1.0 })
 			local isOn = item.Reg.GetState and (item.Reg.GetState() == true)
 			CenterTitle.Text = item.ShortName
 			CenterPill.Text = isOn and "STATUS: ON" or "STATUS: OFF"
 			CenterPill.BackgroundColor3 = isOn and Color3.fromRGB(40, 212, 122) or Color3.fromRGB(235, 76, 88)
 		else
-			CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Favorites"
-			CenterPill.Text = (#wheelItems > 0) and "RELEASE KEY" or "PIN ★ IN TABS"
+			CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Wheel Pins"
+			CenterPill.Text = (#wheelItems > 0) and "RELEASE KEY" or "CLICK ○ TO PIN"
 			CenterPill.BackgroundColor3 = th.Accent
 		end
 	end
@@ -5370,15 +5545,40 @@ do
 		table.clear(wheelItems)
 		local th = GetTheme()
 		local idx = 0
-		for _, funcName in ipairs(FUI.FavoriteOrder) do
-			if FUI.IsFunctionFavorited(funcName) then
-				local reg = FUI.FavoriteRegistry[funcName]
-				if reg then
-					idx = idx + 1
-					local shortName = tostring(reg.Name or funcName):gsub("%s*%b()$", "")
-					if shortName == "" then shortName = tostring(reg.Name or funcName) end
-					wheelItems[idx] = { Name = funcName, ShortName = shortName, Reg = reg }
-					if idx >= 8 then break end
+		if type(savedConfig.RadialWheelItems) == "table" then
+			for _, itemKey in ipairs(savedConfig.RadialWheelItems) do
+				if type(itemKey) == "string" then
+					if itemKey:sub(1, 7) == "AVATAR:" then
+						if FUI.AvatarWheelBridge and FUI.AvatarWheelBridge.GetAvatarEntry then
+							local avData = FUI.AvatarWheelBridge.GetAvatarEntry(itemKey)
+							if avData then
+								idx = idx + 1
+								local avName = tostring(avData.DisplayName or avData.Name or "Avatar")
+								wheelItems[idx] = {
+									Name = itemKey,
+									ShortName = E.Crown .. " " .. avName,
+									Reg = {
+										GetState = function()
+											return FUI.AvatarWheelBridge.IsAvatarWorn(itemKey)
+										end,
+										Toggle = function()
+											FUI.AvatarWheelBridge.ToggleAvatar(itemKey)
+										end
+									}
+								}
+								if idx >= 8 then break end
+							end
+						end
+					else
+						local reg = FUI.FavoriteRegistry[itemKey]
+						if reg then
+							idx = idx + 1
+							local shortName = tostring(reg.Name or itemKey):gsub("%s*%b()$", "")
+							if shortName == "" then shortName = tostring(reg.Name or itemKey) end
+							wheelItems[idx] = { Name = itemKey, ShortName = shortName, Reg = reg }
+							if idx >= 8 then break end
+						end
+					end
 				end
 			end
 		end
@@ -5410,8 +5610,8 @@ do
 			end
 		end
 		hoveredSlotIdx = nil
-		CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Favorites"
-		CenterPill.Text = (#wheelItems > 0) and "MOVE & RELEASE" or "PIN ★ IN TABS"
+		CenterTitle.Text = (#wheelItems > 0) and "Quick Wheel" or "No Wheel Pins"
+		CenterPill.Text = (#wheelItems > 0) and "MOVE & RELEASE" or "CLICK ○ TO PIN"
 		CenterPill.BackgroundColor3 = th.Accent
 	end
 
@@ -5423,14 +5623,25 @@ do
 		local mLoc = UserInputService:GetMouseLocation()
 		local cam = workspace.CurrentCamera
 		local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
-		local margin = HALF_WHEEL + 8
+		local targetSc = GetRadialTargetScale()
+		local margin = math.floor(HALF_WHEEL * targetSc) + 8
 		local cx = math.clamp(mLoc.X, margin, math.max(margin, vs.X - margin))
 		local cy = math.clamp(mLoc.Y, margin, math.max(margin, vs.Y - margin))
 		wheelCenterPos = Vector2.new(cx, cy)
 		WheelRoot.Position = UDim2.new(0, cx, 0, cy)
-		WheelScale.Scale = 0.72
+		WheelScale.Scale = targetSc * 0.68
 		WheelRoot.Visible = true
-		FUI.SafeTween(WheelScale, FUI.TI.NotifIn, { Scale = 1.0 })
+		FUI.SafeTween(WheelScale, FUI.TI.ModalPop, { Scale = targetSc })
+		for si = 1, 8 do
+			local s = wheelSlots[si]
+			s.Scale.Scale = 0.76
+			FUI.SafeTween(s.Scale, FUI.TI.ModalPop, { Scale = 1.0 })
+		end
+		if FUI._RadialSpinConn then pcall(function() FUI._RadialSpinConn:Disconnect() end) end
+		FUI._RadialSpinConn = RunService.RenderStepped:Connect(function(dt)
+			if not radialOpen or not WheelRoot.Visible then return end
+			WheelStrokeGrad.Rotation = (WheelStrokeGrad.Rotation + (dt * 75)) % 360
+		end)
 		if radialMoveConn then pcall(function() radialMoveConn:Disconnect() end) end
 		radialMoveConn = UserInputService.InputChanged:Connect(function(inp)
 			if not radialOpen then return end
@@ -5439,7 +5650,7 @@ do
 			local dx = pos.X - wheelCenterPos.X
 			local dy = pos.Y - wheelCenterPos.Y
 			local dist = math.sqrt(dx * dx + dy * dy)
-			if dist < 48 then
+			if dist < (48 * GetRadialTargetScale()) then
 				UpdateRadialHover(nil)
 				return
 			end
@@ -5463,9 +5674,20 @@ do
 			radialMoveConn = nil
 			FUI._RadialMoveConn = nil
 		end
+		if FUI._RadialSpinConn then
+			pcall(function() FUI._RadialSpinConn:Disconnect() end)
+			FUI._RadialSpinConn = nil
+		end
 		local chosen = (triggerHovered == true and hoveredSlotIdx) and wheelItems[hoveredSlotIdx] or nil
 		hoveredSlotIdx = nil
-		WheelRoot.Visible = false
+		local shrinkTw = FUI.SafeTween(WheelScale, FUI.TI.WheelOut, { Scale = GetRadialTargetScale() * 0.76 })
+		if shrinkTw then
+			shrinkTw.Completed:Connect(function()
+				if not radialOpen and WheelRoot and WheelRoot.Parent then WheelRoot.Visible = false end
+			end)
+		else
+			WheelRoot.Visible = false
+		end
 		if chosen and chosen.Reg and chosen.Reg.Toggle then
 			pcall(chosen.Reg.Toggle)
 		end
@@ -5473,9 +5695,9 @@ do
 	ApplyRadialTheme(GetTheme())
 end
 
-CreateSectionHeader(Tab1_Dashboard, "Smart Anti-AFK, Session Uptime & Window-Focus Power Saver", 25)
+CreateSectionHeader(Tab1_Dashboard, "Smart Anti-AFK, Session Uptime & Window-Focus Power Saver", 26)
 do
-	local UptimeCard = CreateCard(Tab1_Dashboard, 44, 26)
+	local UptimeCard = CreateCard(Tab1_Dashboard, 44, 27)
 	local uptimeLbl = MakeLabel(UptimeCard, UDim2.new(1, -24, 1, 0), UDim2.new(0, 12, 0, 0), "Uptime: 00:00:00  |  AFK Saves: 0  |  Focus: ACTIVE", Enum.Font.GothamBold, 11, "Accent", Enum.TextXAlignment.Center)
 	uptimeLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
@@ -5547,7 +5769,7 @@ do
 		FUI.UpdateSessionUptimeLabel()
 	end
 
-	CreateToggle(Tab1_Dashboard, "Window-Focus Power Saver (Pause 3D & UI Load When Alt-Tabbed)", Config.FocusPowerSaverEnabled ~= false, 27, function(state)
+	CreateToggle(Tab1_Dashboard, "Window-Focus Power Saver (Pause 3D & UI Load When Alt-Tabbed)", Config.FocusPowerSaverEnabled ~= false, 28, function(state)
 		Config.FocusPowerSaverEnabled = state
 		savedConfig.Settings.FocusPowerSaverEnabled = state
 		if not state then FUI.SetWindowPowerSaverState(false) end
@@ -5562,6 +5784,7 @@ do
 	end)
 	table.insert(Connections, UserInputService.WindowFocusReleased:Connect(function()
 		if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+		if FUI.SetBinocularsZoom then pcall(FUI.SetBinocularsZoom, false) end
 		if Config.FocusPowerSaverEnabled ~= false and not isClosingPermanently then
 			FUI.SetWindowPowerSaverState(true)
 		end
@@ -8734,17 +8957,217 @@ FUI.CreateFavoriteStarButton(AutoShootCard, "Auto-Shoot Mode 1: Aimbot Lock Auto
 		local MBtn = MakeButton(CamModeCard, UDim2.new(0, 165, 0, 32), nil, modeName, "AccentDark", 11)
 		MBtn.MouseButton1Click:Connect(function() ApplyCameraMode(modeName) end) end
 
-	CreateSectionHeader(Tab7_Visuals, "6. Lighting, Fullbright & Time Presets", 23)
-	CreateToggle(Tab7_Visuals, "Fullbright Lighting Mode (No Shadows + Max Illumination)", Config.FullbrightEnabled, 24, function(state)
+	do
+		CreateToggle(Tab7_Visuals, "Hold-to-Zoom Binoculars (Hold Key to Smoothly Zoom FOV)", Config.ZoomBinocularsEnabled ~= false, 23, function(state)
+			Config.ZoomBinocularsEnabled = state
+			savedConfig.Settings.ZoomBinocularsEnabled = state
+			if not state and FUI.SetBinocularsZoom then FUI.SetBinocularsZoom(false) end
+			SaveConfig(false)
+		end)
+
+		FUI.ZoomFovSlider = CreateSlider(Tab7_Visuals, "Binoculars Zoom FOV (5°-65° | Hold Key + Scroll Wheel)", 5, 65, math.clamp(tonumber(Config.ZoomTargetFOV) or 20, 5, 65), 24, function(val)
+			Config.ZoomTargetFOV = val
+			savedConfig.Settings.ZoomTargetFOV = val
+			SaveConfig(false)
+		end)
+
+		local ZoomKeyCard = CreateCard(Tab7_Visuals, 44, 25)
+		local zkLbl = MakeLabel(ZoomKeyCard, UDim2.new(0.46, -10, 1, 0), UDim2.new(0, 14, 0, 0), "Binoculars Hold Key:", Enum.Font.GothamSemibold, 12, "TextPrimary", Enum.TextXAlignment.Left)
+		zkLbl.TextTruncate = Enum.TextTruncate.AtEnd
+		local zkBindBtn = MakeButton(ZoomKeyCard, UDim2.new(0.32, -8, 0, 28), UDim2.new(0.46, 2, 0.5, -14), "Hold: [" .. tostring(Config.ZoomKeybind or "B") .. "]", "PanelBg", 11)
+		local zkClearBtn = Instance.new("TextButton", ZoomKeyCard)
+		zkClearBtn.Size = UDim2.new(0.22, -14, 0, 28)
+		zkClearBtn.Position = UDim2.new(0.78, 4, 0.5, -14)
+		zkClearBtn.BackgroundColor3 = Color3.fromRGB(165, 38, 55)
+		zkClearBtn.BorderSizePixel = 0
+		zkClearBtn.Font = Enum.Font.GothamBold
+		zkClearBtn.TextSize = 11
+		zkClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		zkClearBtn.Text = E.Trash .. " Clear"
+		AddCorner(zkClearBtn, 6)
+		FUI.AttachSpringAndRipple(zkClearBtn)
+
+		local function RefreshZoomKeyUI()
+			zkBindBtn.Text = "Hold: [" .. tostring(Config.ZoomKeybind or "None") .. "]"
+		end
+		FUI.RefreshZoomKeyUI = RefreshZoomKeyUI
+
+		zkBindBtn.MouseButton1Click:Connect(function()
+			zkBindBtn.Text = "[Press Key]"
+			ActiveKeybindCaptureCallback = function(k)
+				TryAssignUniqueKeybind(k, "ZoomBinoculars", function(val)
+					Config.ZoomKeybind = val
+					savedConfig.Settings.ZoomKeybind = val
+				end, function()
+					RefreshZoomKeyUI()
+					if FUI.RefreshMasterKeybindPanel then pcall(FUI.RefreshMasterKeybindPanel) end
+				end, zkBindBtn)
+			end
+		end)
+		zkClearBtn.MouseButton1Click:Connect(function()
+			Config.ZoomKeybind = "None"
+			savedConfig.Settings.ZoomKeybind = "None"
+			ActiveKeybindCaptureCallback = nil
+			RefreshZoomKeyUI()
+			if FUI.RefreshMasterKeybindPanel then pcall(FUI.RefreshMasterKeybindPanel) end
+			SaveConfig(false)
+		end)
+
+		local ZoomOverlay = Instance.new("Frame")
+		ZoomOverlay.Name = "TR_ZoomBinocularsHUD"
+		ZoomOverlay.Size = UDim2.new(1, 0, 1, 0)
+		ZoomOverlay.BackgroundTransparency = 1
+		ZoomOverlay.BorderSizePixel = 0
+		ZoomOverlay.Active = false
+		ZoomOverlay.Visible = false
+		ZoomOverlay.ZIndex = 50
+		ZoomOverlay.Parent = ScreenGui
+
+		local retRing = Instance.new("Frame", ZoomOverlay)
+		retRing.AnchorPoint = Vector2.new(0.5, 0.5)
+		retRing.Size = UDim2.new(0, 190, 0, 190)
+		retRing.Position = UDim2.new(0.5, 0, 0.5, 0)
+		retRing.BackgroundTransparency = 1
+		retRing.BorderSizePixel = 0
+		retRing.Active = false
+		retRing.ZIndex = 51
+		AddCorner(retRing, 95)
+		local retStroke = Instance.new("UIStroke", retRing)
+		retStroke.Thickness = 1.6
+		retStroke.Transparency = 0.25
+		retStroke.Color = GetTheme().Accent
+
+		local centerDot = Instance.new("Frame", retRing)
+		centerDot.AnchorPoint = Vector2.new(0.5, 0.5)
+		centerDot.Size = UDim2.new(0, 4, 0, 4)
+		centerDot.Position = UDim2.new(0.5, 0, 0.5, 0)
+		centerDot.BackgroundColor3 = GetTheme().Accent
+		centerDot.BorderSizePixel = 0
+		centerDot.ZIndex = 52
+		AddCorner(centerDot, 2)
+
+		local zoomPill = Instance.new("Frame", ZoomOverlay)
+		zoomPill.AnchorPoint = Vector2.new(0.5, 0)
+		zoomPill.Size = UDim2.new(0, 168, 0, 26)
+		zoomPill.Position = UDim2.new(0.5, 0, 0.5, 108)
+		zoomPill.BackgroundColor3 = GetTheme().MainBg
+		zoomPill.BackgroundTransparency = 0.16
+		zoomPill.BorderSizePixel = 0
+		zoomPill.ZIndex = 52
+		AddCorner(zoomPill, 13)
+		local zpStroke = Instance.new("UIStroke", zoomPill)
+		zpStroke.Thickness = 1.3
+		zpStroke.Color = GetTheme().Accent
+		local zoomReadout = MakeLabel(zoomPill, UDim2.new(1, -12, 1, 0), UDim2.new(0, 6, 0, 0), E.Eye .. " ZOOM 3.5x  |  20°", Enum.Font.GothamBold, 10, "TextPrimary", Enum.TextXAlignment.Center)
+		zoomReadout.ZIndex = 53
+
+		table.insert(ThemeObjects.CustomCallbacks, function(th)
+			retStroke.Color = th.Accent
+			centerDot.BackgroundColor3 = th.Accent
+			zoomPill.BackgroundColor3 = th.MainBg
+			zpStroke.Color = th.Accent
+		end)
+
+		local CAS = game:GetService("ContextActionService")
+		local savedMinZoom, savedMaxZoom = nil, nil
+		FUI._ZoomActive = false
+		FUI._ZoomAnimating = false
+		FUI._CurrentZoomFOV = tonumber(Config.FOV) or 70
+
+		local function ApplyZoomWheelDelta(deltaZ)
+			local baseFov = math.clamp(tonumber(Config.FOV) or 70, 30, 120)
+			local maxZoomFov = math.min(65, baseFov)
+			local curTarget = math.clamp(tonumber(Config.ZoomTargetFOV) or 20, 5, maxZoomFov)
+			local nextFov = math.clamp(curTarget - (deltaZ * 4), 5, maxZoomFov)
+			Config.ZoomTargetFOV = nextFov
+			savedConfig.Settings.ZoomTargetFOV = nextFov
+			if FUI.ZoomFovSlider and FUI.ZoomFovSlider.SetValue then pcall(FUI.ZoomFovSlider.SetValue, nextFov) end
+			SaveConfig(false)
+		end
+
+		FUI.SetBinocularsZoom = function(active)
+			if active and (Config.ZoomBinocularsEnabled == false or isClosingPermanently) then return end
+			if active then
+				if not FUI._ZoomActive then
+					local cam = workspace.CurrentCamera
+					if not FUI._ZoomAnimating then
+						FUI._CurrentZoomFOV = (cam and cam.FieldOfView) or tonumber(Config.FOV) or 70
+					end
+					pcall(function()
+						savedMinZoom = player.CameraMinZoomDistance
+						savedMaxZoom = player.CameraMaxZoomDistance
+						if cam then
+							local curDist = (cam.CFrame.Position - cam.Focus.Position).Magnitude
+							player.CameraMinZoomDistance = curDist
+							player.CameraMaxZoomDistance = curDist
+						end
+					end)
+					pcall(function()
+						CAS:BindActionAtPriority("TR_BinocScroll", function(_, _, inp)
+							if FUI._ZoomActive and inp and inp.UserInputType == Enum.UserInputType.MouseWheel then
+								ApplyZoomWheelDelta(inp.Position.Z)
+								return Enum.ContextActionResult.Sink
+							end
+							return Enum.ContextActionResult.Pass
+						end, false, Enum.ContextActionPriority.High.Value + 500, Enum.UserInputType.MouseWheel)
+					end)
+				end
+				FUI._ZoomActive = true
+				FUI._ZoomAnimating = true
+				ZoomOverlay.Visible = true
+			else
+				pcall(function() CAS:UnbindAction("TR_BinocScroll") end)
+				if savedMinZoom ~= nil and savedMaxZoom ~= nil then
+					pcall(function()
+						player.CameraMinZoomDistance = savedMinZoom
+						player.CameraMaxZoomDistance = savedMaxZoom
+					end)
+					savedMinZoom, savedMaxZoom = nil, nil
+				end
+				if FUI._ZoomActive then
+					FUI._ZoomActive = false
+					FUI._ZoomAnimating = true
+				end
+				ZoomOverlay.Visible = false
+			end
+		end
+		FUI.StepBinocularsZoom = function(dt, cam)
+			if not cam then return end
+			local baseFov = tonumber(Config.FOV) or 70
+			if not FUI._ZoomActive and not FUI._ZoomAnimating then
+				if cam.FieldOfView ~= baseFov then cam.FieldOfView = baseFov end
+				return
+			end
+			local targetFov = FUI._ZoomActive and math.clamp(tonumber(Config.ZoomTargetFOV) or 20, 5, math.min(65, baseFov)) or baseFov
+			local alpha = 1 - math.exp(-math.min(dt or 0.016, 0.05) * 14)
+			FUI._CurrentZoomFOV = FUI._CurrentZoomFOV + ((targetFov - FUI._CurrentZoomFOV) * alpha)
+			if not FUI._ZoomActive and math.abs(FUI._CurrentZoomFOV - baseFov) < 0.15 then
+				FUI._CurrentZoomFOV = baseFov
+				FUI._ZoomAnimating = false
+				ZoomOverlay.Visible = false
+			end
+			cam.FieldOfView = FUI._CurrentZoomFOV
+			if FUI._ZoomActive and ZoomOverlay.Visible then
+				local mag = math.max(1, baseFov / math.max(1, FUI._CurrentZoomFOV))
+				zoomReadout.Text = string.format("%s %.1fx | %.0f° [Scroll]", E.Eye, mag, FUI._CurrentZoomFOV)
+				local ringPx = math.clamp(math.floor(110 + (FUI._CurrentZoomFOV * 2.2) + 0.5), 120, 250)
+				retRing.Size = UDim2.new(0, ringPx, 0, ringPx)
+				zoomPill.Position = UDim2.new(0.5, 0, 0.5, math.floor(ringPx * 0.5) + 14)
+			end
+		end
+	end
+
+	CreateSectionHeader(Tab7_Visuals, "6. Lighting, Fullbright & Time Presets", 26)
+	CreateToggle(Tab7_Visuals, "Fullbright Lighting Mode (No Shadows + Max Illumination)", Config.FullbrightEnabled, 27, function(state)
 		Config.FullbrightEnabled = state if not state then pcall(function()
 				Lighting.Brightness = DefaultLighting.Brightness
 				Lighting.GlobalShadows = DefaultLighting.GlobalShadows
 				Lighting.OutdoorAmbient = DefaultLighting.OutdoorAmbient end) end SaveConfig(false) end)
-	CreateToggle(Tab7_Visuals, "Remove Fog (Clear Legacy Fog & Atmosphere Haze)", Config.NoFogEnabled == true, 25, function(state)
+	CreateToggle(Tab7_Visuals, "Remove Fog (Clear Legacy Fog & Atmosphere Haze)", Config.NoFogEnabled == true, 28, function(state)
 		Config.NoFogEnabled = state
 		if state then ApplyNoFog() else RestoreFog() end
 		SaveConfig(false) end)
-	local TimeCard = CreateCard(Tab7_Visuals, 50, 26) local TimeList = Instance.new("UIListLayout")
+	local TimeCard = CreateCard(Tab7_Visuals, 50, 29) local TimeList = Instance.new("UIListLayout")
 	TimeList.FillDirection = Enum.FillDirection.Horizontal
 	TimeList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	TimeList.VerticalAlignment = Enum.VerticalAlignment.Center TimeList.Padding = UDim.new(0, 10)
@@ -8834,6 +9257,7 @@ local function SetupTab8()
 	RegisterThemeObject(CodeBox, "PlaceholderColor3", "TextSecondary")
 
 	local isLoadingTabText = false
+	local editorHydrated = false
 	local updatingCanvas = false
 	local TabScrollY = {}
 
@@ -8923,12 +9347,16 @@ local function SetupTab8()
 	TabsScroll.InputChanged:Connect(HandleTabWheelScroll)
 
 	local function SaveCurrentEditorToActiveTab()
-		if isLoadingTabText then return end
+		if isLoadingTabText or not editorHydrated then return end
 		local curTab = savedConfig.ExecutorTabs[savedConfig.ActiveExecutorTab]
 		if curTab then
 			curTab.Code = CodeBox.Text
 			TabScrollY[curTab] = CodeScroll.CanvasPosition.Y
 		end
+	end
+	FUI.SaveExecutorBufferNow = function()
+		SaveCurrentEditorToActiveTab()
+		SaveConfig(false, true)
 	end
 
 	CodeBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -8939,7 +9367,7 @@ local function SetupTab8()
 	end)
 	CodeBox.FocusLost:Connect(function()
 		SaveCurrentEditorToActiveTab()
-		SaveConfig(false)
+		SaveConfig(false, true)
 	end)
 
 	local function SyncTabChipColors()
@@ -8964,6 +9392,7 @@ local function SetupTab8()
 		isLoadingTabText = true
 		CodeBox.Text = tostring(tabData.Code or "")
 		isLoadingTabText = false
+		editorHydrated = true
 		UpdateCodeScrollCanvas()
 		CodeScroll.CanvasPosition = Vector2.new(0, TabScrollY[tabData] or 0)
 		SyncTabChipColors()
@@ -9035,7 +9464,7 @@ local function SetupTab8()
 				local trimmed = tostring(NameInput.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
 				tabData.Name = (trimmed ~= "") and trimmed or ("Script " .. tostring(idx))
 				NameInput.Text = tabData.Name
-				SaveConfig(false)
+				SaveConfig(false, true)
 			end)
 
 			local DelTabBtn = Instance.new("TextButton")
@@ -9058,7 +9487,7 @@ local function SetupTab8()
 					else
 						savedConfig.ActiveExecutorTab = math.clamp(savedConfig.ActiveExecutorTab, 1, #savedConfig.ExecutorTabs)
 					end
-					SaveConfig(false)
+					SaveConfig(false, true)
 					RebuildExecutorTabs()
 				end
 			end)
@@ -9077,7 +9506,7 @@ local function SetupTab8()
 		table.insert(savedConfig.ExecutorTabs, { Name = GetNextUniqueScriptName(), Code = "" })
 		savedConfig.ActiveExecutorTab = #savedConfig.ExecutorTabs
 		RebuildExecutorTabs()
-		SaveConfig(false)
+		SaveConfig(false, true)
 		task.defer(function()
 			UpdateTabsCanvasSize()
 			local maxScroll = math.max(0, TabsScroll.CanvasSize.X.Offset - TabsScroll.AbsoluteSize.X)
@@ -9261,6 +9690,7 @@ local function SetupTab8()
 
 	ExecuteBtn.MouseButton1Click:Connect(function()
 		SaveCurrentEditorToActiveTab()
+		SaveConfig(false, true)
 		local curTab = savedConfig.ExecutorTabs[savedConfig.ActiveExecutorTab]
 		local okRun = ExecuteSourceWithLogging(CodeBox.Text, curTab and curTab.Name or "Script")
 		ExecuteBtn.Text = okRun and (E.Check .. " Ran!") or (E.Close .. " Error")
@@ -9300,6 +9730,12 @@ local function SetupTab8()
 		end)
 	end)
 
+	table.insert(Connections, Players.PlayerRemoving:Connect(function(leavingPlr)
+		if leavingPlr == player then
+			SaveCurrentEditorToActiveTab()
+			FlushConfigNow(false)
+		end
+	end))
 	RebuildExecutorTabs()
 end
 if FUI.SetLoadProgress then FUI.SetLoadProgress(82, "Loading Multi-Tab Script Executor...") end
@@ -10908,9 +11344,13 @@ vars.cleanup = function()
 	table.clear(vars.runtimeConnections)
 
 	pcall(function()
-		if vars.HoverPreview and vars.HoverPreview.Parent then
-			vars.HoverPreview:Destroy()
+	if type(vars.PreviewSlots) == "table" then
+		for _, sl in ipairs(vars.PreviewSlots) do
+			if sl.Popup and sl.Popup.Parent then pcall(function() sl.Popup:Destroy() end) end
 		end
+	elseif vars.HoverPreview and vars.HoverPreview.Parent then
+		vars.HoverPreview:Destroy()
+	end
 	end)
 
 	pcall(function()
@@ -13498,6 +13938,77 @@ end
 
 vars.hoverPreviewToken = vars.hoverPreviewToken or 0
 
+vars.MAX_PREVIEW_SLOTS = 3
+vars.PreviewSlots = {}
+
+vars.findPreviewSlotByData = function(data)
+	if not data then return nil end
+	for _, sl in ipairs(vars.PreviewSlots) do
+		if sl.Popup and sl.Popup.Visible and sl.Data == data then
+			return sl
+		end
+	end
+	return nil
+end
+
+vars.isAvatarPreviewPinned = function(data)
+	if not data then return false end
+	for _, sl in ipairs(vars.PreviewSlots) do
+		if sl.IsPinned and sl.Data == data and sl.Popup and sl.Popup.Visible then
+			return true
+		end
+	end
+	return false
+end
+
+vars.countPinnedPreviews = function()
+	local c = 0
+	for _, sl in ipairs(vars.PreviewSlots) do
+		if sl.IsPinned and sl.Popup and sl.Popup.Visible then
+			c = c + 1
+		end
+	end
+	return c
+end
+
+vars.anyPreviewVisible = function()
+	for _, sl in ipairs(vars.PreviewSlots) do
+		if sl.Popup and sl.Popup.Visible then return true end
+	end
+	return false
+end
+
+vars.closePreviewSlot = function(slot)
+	if not slot then return end
+	slot.Token = (slot.Token or 0) + 1
+	slot.Data = nil
+	slot.IsPinned = false
+	slot.IsRotating = false
+	slot.LastInteract = 0
+	slot.Yaw = 0
+	slot.Pitch = 0
+	if slot.Model then
+		pcall(function() slot.Model:Destroy() end)
+		slot.Model = nil
+	end
+	slot.Viewport = nil
+	if slot.Popup then
+		slot.Popup.Visible = false
+	end
+	if not vars.anyPreviewVisible() then
+		if vars.ui.hoverConnection then
+			vars.disconnectConnection(vars.ui.hoverConnection)
+			vars.ui.hoverConnection = nil
+		end
+		vars.ui.hoverModel = nil
+		vars.ui.hoverViewport = nil
+		vars.ui.pinnedPreviewData = nil
+	end
+	if vars.updateRowVisuals then
+		pcall(vars.updateRowVisuals, vars.ui.selectedAvatar)
+	end
+end
+
 vars.stopHoverPreview = function()
 	vars.hoverPreviewToken = vars.hoverPreviewToken + 1
 	vars.ui.hoverButton = nil
@@ -13506,32 +14017,41 @@ vars.stopHoverPreview = function()
 		vars.disconnectConnection(vars.ui.hoverConnection)
 		vars.ui.hoverConnection = nil
 	end
-	if vars.ui.hoverModel then
-		pcall(function() vars.ui.hoverModel:Destroy() end)
-		vars.ui.hoverModel = nil
+	for _, sl in ipairs(vars.PreviewSlots) do
+		sl.Token = (sl.Token or 0) + 1
+		sl.Data = nil
+		sl.IsPinned = false
+		sl.IsRotating = false
+		sl.LastInteract = 0
+		sl.Yaw = 0
+		sl.Pitch = 0
+		if sl.Model then
+			pcall(function() sl.Model:Destroy() end)
+			sl.Model = nil
+		end
+		sl.Viewport = nil
+		if sl.Popup then sl.Popup.Visible = false end
 	end
+	vars.ui.hoverModel = nil
 	vars.ui.hoverViewport = nil
-	local popup = vars.HoverPreview
-	if popup then
-		popup.Visible = false
-	end
 	if vars.updateRowVisuals then
 		pcall(vars.updateRowVisuals, vars.ui.selectedAvatar)
 	end
 end
 genv._TR_StopAvatarHoverPreview = vars.stopHoverPreview
 
-vars.createHoverPreviewUI = function()
+vars.createHoverPreviewUI = function(slotObj)
 	local t = GetTheme()
+	local slotIdx = slotObj and slotObj.Index or 1
 	local popup = Instance.new("Frame")
-	popup.Name = "TR_AvatarHoverPreview"
-	popup.Size = UDim2.new(0, vars.previewWidth, 0, 370)
-	popup.Position = UDim2.new(0.5, 290, 0.5, -185)
+	popup.Name = "TR_AvatarHoverPreview_" .. tostring(slotIdx)
+	popup.Size = UDim2.new(0, vars.previewWidth, 0, 360)
+	popup.Position = UDim2.new(0.5, 290, 0.5, -180)
 	popup.BackgroundColor3 = t.MainBg
 	popup.BackgroundTransparency = 0.06
 	popup.BorderSizePixel = 0
 	popup.Visible = false
-	popup.ZIndex = 65
+	popup.ZIndex = 65 + (slotIdx * 2)
 	popup.Parent = vars.ScreenGui
 	vars.addCorner(popup, 12)
 	local pStroke = vars.addStroke(popup, t.Stroke, 1.6, 0.2)
@@ -13553,7 +14073,8 @@ vars.createHoverPreviewUI = function()
 	topBar.Size = UDim2.new(1, -20, 0, 28)
 	topBar.Position = UDim2.new(0, 10, 0, 8)
 	topBar.BackgroundTransparency = 1
-	topBar.ZIndex = 67
+	topBar.Active = true
+	topBar.ZIndex = popup.ZIndex + 2
 	topBar.Parent = popup
 
 	local title = Instance.new("TextLabel")
@@ -13561,13 +14082,13 @@ vars.createHoverPreviewUI = function()
 	title.Size = UDim2.new(1, -32, 1, 0)
 	title.Position = UDim2.new(0, 2, 0, 0)
 	title.BackgroundTransparency = 1
-	title.Text = "3D AVATAR PREVIEW"
+	title.Text = "3D PREVIEW #" .. tostring(slotIdx)
 	title.TextColor3 = t.Accent
-	title.TextSize = 12
+	title.TextSize = 11
 	title.Font = Enum.Font.GothamBold
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextTruncate = Enum.TextTruncate.AtEnd
-	title.ZIndex = 68
+	title.ZIndex = popup.ZIndex + 3
 	title.Parent = topBar
 
 	local closeBtn = Instance.new("TextButton")
@@ -13580,212 +14101,324 @@ vars.createHoverPreviewUI = function()
 	closeBtn.TextSize = 11
 	closeBtn.TextColor3 = t.TextPrimary
 	closeBtn.Text = "X"
-	closeBtn.ZIndex = 69
+	closeBtn.ZIndex = popup.ZIndex + 4
 	closeBtn.Parent = topBar
 	vars.addCorner(closeBtn, 6)
 	vars.wire(closeBtn.Activated, function()
-		vars.stopHoverPreview()
+		vars.closePreviewSlot(slotObj)
 	end)
 
 	local viewportHolder = Instance.new("Frame")
 	viewportHolder.Name = "ViewportHolder"
-	viewportHolder.Size = UDim2.new(1, -24, 1, -96)
+	viewportHolder.Size = UDim2.new(1, -24, 1, -98)
 	viewportHolder.Position = UDim2.new(0, 12, 0, 40)
 	viewportHolder.BackgroundColor3 = t.PanelBg
 	viewportHolder.BackgroundTransparency = 0.25
 	viewportHolder.BorderSizePixel = 0
 	viewportHolder.ClipsDescendants = true
-	viewportHolder.ZIndex = 66
+	viewportHolder.Active = true
+	viewportHolder.ZIndex = popup.ZIndex + 1
 	viewportHolder.Parent = popup
 	vars.addCorner(viewportHolder, 8)
-	local vhStroke = vars.addStroke(viewportHolder, t.Stroke, 1, 0.45)
-	vhStroke.Name = "VHStroke"
+	local vhSt = vars.addStroke(viewportHolder, t.Stroke, 1, 0.5)
+	vhSt.Name = "VHStroke"
 
-	local info = Instance.new("TextLabel")
-	info.Name = "Info"
-	info.Size = UDim2.new(1, -24, 0, 18)
-	info.Position = UDim2.new(0, 12, 1, -50)
-	info.BackgroundTransparency = 1
-	info.Text = "R15  |  0 accessories"
-	info.TextColor3 = t.TextSecondary
-	info.TextSize = 11
-	info.Font = Enum.Font.GothamSemibold
-	info.TextXAlignment = Enum.TextXAlignment.Left
-	info.ZIndex = 68
-	info.Parent = popup
+	local status = Instance.new("TextLabel")
+	status.Name = "PreviewStatus"
+	status.Size = UDim2.new(1, -16, 1, -16)
+	status.Position = UDim2.new(0, 8, 0, 8)
+	status.BackgroundTransparency = 1
+	status.Text = "Loading 3D preview..."
+	status.TextColor3 = t.TextSecondary
+	status.TextSize = 11
+	status.Font = Enum.Font.GothamSemibold
+	status.TextWrapped = true
+	status.ZIndex = popup.ZIndex + 3
+	status.Parent = viewportHolder
 
-	local previewStatus = Instance.new("TextLabel")
-	previewStatus.Name = "PreviewStatus"
-	previewStatus.Size = UDim2.new(1, -24, 1, -24)
-	previewStatus.Position = UDim2.new(0, 12, 0, 12)
-	previewStatus.BackgroundTransparency = 1
-	previewStatus.Text = ""
-	previewStatus.TextColor3 = t.TextSecondary
-	previewStatus.TextSize = 12
-	previewStatus.Font = Enum.Font.GothamSemibold
-	previewStatus.TextWrapped = true
-	previewStatus.TextXAlignment = Enum.TextXAlignment.Center
-	previewStatus.TextYAlignment = Enum.TextYAlignment.Center
-	previewStatus.Visible = false
-	previewStatus.ZIndex = 69
-	previewStatus.Parent = viewportHolder
+	local dragHint = Instance.new("TextLabel")
+	dragHint.Name = "DragRotateHint"
+	dragHint.Size = UDim2.new(1, -12, 0, 16)
+	dragHint.Position = UDim2.new(0, 6, 1, -18)
+	dragHint.BackgroundTransparency = 1
+	dragHint.Text = "Drag to rotate (auto-spins after 3s idle)"
+	dragHint.TextColor3 = t.TextSecondary
+	dragHint.TextTransparency = 0.25
+	dragHint.TextSize = 9
+	dragHint.Font = Enum.Font.GothamSemibold
+	dragHint.ZIndex = popup.ZIndex + 3
+	dragHint.Parent = viewportHolder
 
 	local bottomName = Instance.new("TextLabel")
 	bottomName.Name = "BottomOutfitName"
-	bottomName.Size = UDim2.new(1, -40, 0, 22)
-	bottomName.Position = UDim2.new(0, 12, 1, -28)
+	bottomName.Size = UDim2.new(1, -24, 0, 20)
+	bottomName.Position = UDim2.new(0, 12, 1, -50)
 	bottomName.BackgroundTransparency = 1
 	bottomName.Text = "Outfit"
 	bottomName.TextColor3 = t.TextPrimary
-	bottomName.TextSize = 13
+	bottomName.TextSize = 12
 	bottomName.Font = Enum.Font.GothamBold
 	bottomName.TextXAlignment = Enum.TextXAlignment.Left
 	bottomName.TextTruncate = Enum.TextTruncate.AtEnd
-	bottomName.ZIndex = 68
+	bottomName.ZIndex = popup.ZIndex + 2
 	bottomName.Parent = popup
 
-	popup.Active = true
-	topBar.Active = true
+	local info = Instance.new("TextLabel")
+	info.Name = "Info"
+	info.Size = UDim2.new(1, -44, 0, 18)
+	info.Position = UDim2.new(0, 12, 1, -28)
+	info.BackgroundTransparency = 1
+	info.Text = ""
+	info.TextColor3 = t.TextSecondary
+	info.TextSize = 10
+	info.Font = Enum.Font.GothamSemibold
+	info.TextXAlignment = Enum.TextXAlignment.Left
+	info.TextTruncate = Enum.TextTruncate.AtEnd
+	info.ZIndex = popup.ZIndex + 2
+	info.Parent = popup
 
-	local resizeRight = Instance.new("TextButton")
-	resizeRight.Name = "PreviewResizeRight"
-	resizeRight.Size = UDim2.new(0, 7, 1, -24)
-	resizeRight.Position = UDim2.new(1, -7, 0, 12)
-	resizeRight.BackgroundTransparency = 1
-	resizeRight.Text = ""
-	resizeRight.ZIndex = 70
-	resizeRight.Parent = popup
+	local resizeGrip = Instance.new("TextButton")
+	resizeGrip.Name = "ResizeGrip"
+	resizeGrip.Size = UDim2.fromOffset(20, 20)
+	resizeGrip.Position = UDim2.new(1, -22, 1, -22)
+	resizeGrip.BackgroundTransparency = 1
+	resizeGrip.BorderSizePixel = 0
+	resizeGrip.Text = "◢"
+	resizeGrip.Font = Enum.Font.GothamBold
+	resizeGrip.TextSize = 12
+	resizeGrip.TextColor3 = t.Accent
+	resizeGrip.ZIndex = popup.ZIndex + 5
+	resizeGrip.Parent = popup
 
-	local resizeBottom = Instance.new("TextButton")
-	resizeBottom.Name = "PreviewResizeBottom"
-	resizeBottom.Size = UDim2.new(1, -24, 0, 7)
-	resizeBottom.Position = UDim2.new(0, 12, 1, -7)
-	resizeBottom.BackgroundTransparency = 1
-	resizeBottom.Text = ""
-	resizeBottom.ZIndex = 70
-	resizeBottom.Parent = popup
+	local draggingPopup = false
+	local dragPopupStart, startPopupPos = nil, nil
+	local resizingPopup = false
+	local resizeStartPos, resizeStartSize = nil, nil
 
-	local resizeCorner = Instance.new("TextButton")
-	resizeCorner.Name = "PreviewResizeCorner"
-	resizeCorner.Size = UDim2.fromOffset(18, 18)
-	resizeCorner.Position = UDim2.new(1, -18, 1, -18)
-	resizeCorner.BackgroundTransparency = 1
-	resizeCorner.Font = Enum.Font.GothamBold
-	resizeCorner.TextSize = 11
-	resizeCorner.TextColor3 = t.TextSecondary
-	resizeCorner.Text = E.Grip or "/"
-	resizeCorner.ZIndex = 71
-	resizeCorner.Parent = popup
-
-	local draggingPreview = false
-	local resizingPreviewMode = nil
-	local dragStartMouse, dragStartPos = nil, nil
-	local resizeStartMouse, resizeStartSize = nil, nil
-
-	local function beginDrag(input)
-		if resizingPreviewMode then return end
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			draggingPreview = true
-			vars.previewDraggingOrResizing = true
-			dragStartMouse = input.Position
-			dragStartPos = Vector2.new(popup.Position.X.Offset, popup.Position.Y.Offset)
-			vars.previewCustomPos = dragStartPos
-			vars.previewUserMoved = true
-		end
-	end
-	vars.wire(topBar.InputBegan, beginDrag)
-	vars.wire(popup.InputBegan, beginDrag)
-
-	local function beginResize(mode, input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			resizingPreviewMode = mode
-			draggingPreview = false
-			vars.previewDraggingOrResizing = true
-			resizeStartMouse = input.Position
-			resizeStartSize = Vector2.new(popup.Size.X.Offset, popup.Size.Y.Offset)
-		end
-	end
-	vars.wire(resizeRight.InputBegan, function(inp) beginResize("Right", inp) end)
-	vars.wire(resizeBottom.InputBegan, function(inp) beginResize("Bottom", inp) end)
-	vars.wire(resizeCorner.InputBegan, function(inp) beginResize("Corner", inp) end)
-
-	vars.wire(vars.UserInputService.InputChanged, function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-		local cam = vars.Workspace.CurrentCamera
-		local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
-		if resizingPreviewMode and resizeStartMouse and resizeStartSize then
-			local delta = input.Position - resizeStartMouse
-			local newW = resizeStartSize.X
-			local newH = resizeStartSize.Y
-			if resizingPreviewMode == "Right" or resizingPreviewMode == "Corner" then
-				newW = math.clamp(resizeStartSize.X + delta.X, 180, math.min(560, vp.X - 16))
-			end
-			if resizingPreviewMode == "Bottom" or resizingPreviewMode == "Corner" then
-				newH = math.clamp(resizeStartSize.Y + delta.Y, 240, math.min(680, vp.Y - 16))
-			end
-			vars.previewCustomSize = Vector2.new(newW, newH)
-			popup.Size = UDim2.fromOffset(newW, newH)
-		elseif draggingPreview and dragStartMouse and dragStartPos then
-			local delta = input.Position - dragStartMouse
-			local curW = popup.Size.X.Offset
-			local curH = popup.Size.Y.Offset
-			local nx = math.clamp(dragStartPos.X + delta.X, 8, math.max(8, vp.X - curW - 8))
-			local ny = math.clamp(dragStartPos.Y + delta.Y, 8, math.max(8, vp.Y - curH - 8))
-			vars.previewCustomPos = Vector2.new(nx, ny)
-			popup.Position = UDim2.fromOffset(nx, ny)
+	topBar.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			draggingPopup = true
+			slotObj.DraggingOrResizing = true
+			dragPopupStart = inp.Position
+			startPopupPos = popup.AbsolutePosition
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					draggingPopup = false
+					slotObj.DraggingOrResizing = false
+				end
+			end)
 		end
 	end)
 
-	vars.wire(vars.UserInputService.InputEnded, function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			draggingPreview = false
-			resizingPreviewMode = nil
-			vars.previewDraggingOrResizing = false
+	resizeGrip.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			resizingPopup = true
+			slotObj.DraggingOrResizing = true
+			resizeStartPos = inp.Position
+			resizeStartSize = popup.AbsoluteSize
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					resizingPopup = false
+					slotObj.DraggingOrResizing = false
+				end
+			end)
+		end
+	end)
+
+	viewportHolder.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			slotObj.IsRotating = true
+			slotObj.LastRotatePos = inp.Position
+			slotObj.LastInteract = os.clock()
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					slotObj.IsRotating = false
+					slotObj.LastInteract = os.clock()
+				end
+			end)
+		end
+	end)
+
+	vars.wire(UserInputService.InputChanged, function(inp)
+		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+		if slotObj.IsRotating and slotObj.LastRotatePos then
+			local delta = inp.Position - slotObj.LastRotatePos
+			slotObj.LastRotatePos = inp.Position
+			slotObj.Yaw = (slotObj.Yaw or 0) + (delta.X * 0.014)
+			slotObj.Pitch = math.clamp((slotObj.Pitch or 0) + (delta.Y * 0.009), -math.rad(35), math.rad(35))
+			slotObj.LastInteract = os.clock()
+			return
+		end
+		local cam = vars.Workspace.CurrentCamera
+		local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+		if draggingPopup and dragPopupStart and startPopupPos then
+			local d = inp.Position - dragPopupStart
+			local pw, ph = popup.AbsoluteSize.X, popup.AbsoluteSize.Y
+			local nx = math.clamp(startPopupPos.X + d.X, 8, math.max(8, vp.X - pw - 8))
+			local ny = math.clamp(startPopupPos.Y + d.Y, 8, math.max(8, vp.Y - ph - 8))
+			slotObj.UserMoved = true
+			slotObj.CustomPos = Vector2.new(nx, ny)
+			popup.Position = UDim2.fromOffset(nx, ny)
+		elseif resizingPopup and resizeStartPos and resizeStartSize then
+			local d = inp.Position - resizeStartPos
+			local nw = math.clamp(math.floor(resizeStartSize.X + d.X + 0.5), 190, 420)
+			local nh = math.clamp(math.floor(resizeStartSize.Y + d.Y + 0.5), 250, 540)
+			slotObj.CustomSize = Vector2.new(nw, nh)
+			popup.Size = UDim2.fromOffset(nw, nh)
 		end
 	end)
 
 	return popup
 end
-vars.HoverPreview = vars.createHoverPreviewUI()
+
+for si = 1, vars.MAX_PREVIEW_SLOTS do
+	local sl = {
+		Index = si, Token = 0, Data = nil, IsPinned = false, Model = nil, Viewport = nil,
+		Yaw = 0, Pitch = 0, IsRotating = false, LastRotatePos = nil, LastInteract = 0,
+		UserMoved = false, CustomPos = nil, CustomSize = nil, DraggingOrResizing = false
+	}
+	sl.Popup = vars.createHoverPreviewUI(sl)
+	vars.PreviewSlots[si] = sl
+end
+vars.HoverPreview = vars.PreviewSlots[1].Popup
 
 vars.updateHoverPreviewPosition = function()
-	local popup = vars.HoverPreview
-	if not popup or not MainFrame then return end
+	if not MainFrame then return end
 	if not isMenuVisible or ActiveTabName ~= "Avatar Changer" then
-		if popup.Visible then vars.stopHoverPreview() end
+		if vars.anyPreviewVisible() then vars.stopHoverPreview() end
 		return
 	end
-	if vars.previewDraggingOrResizing then return end
 	local cam = vars.Workspace.CurrentCamera
 	local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
 	local mPos = MainFrame.AbsolutePosition
 	local mSize = MainFrame.AbsoluteSize
-	local pWidth = vars.previewCustomSize and vars.previewCustomSize.X or vars.previewWidth
-	local pHeight = vars.previewCustomSize and vars.previewCustomSize.Y or math.clamp(mSize.Y, 320, 420)
-	popup.Size = UDim2.fromOffset(pWidth, pHeight)
+	local defaultW = math.clamp(vars.previewWidth or 220, 195, 240)
+	local defaultH = math.clamp(mSize.Y, 310, 390)
+	local gap = vars.previewGap or 10
 
-	if vars.previewUserMoved and vars.previewCustomPos then
-		local clampedX = math.clamp(vars.previewCustomPos.X, 8, math.max(8, vp.X - pWidth - 8))
-		local clampedY = math.clamp(vars.previewCustomPos.Y, 8, math.max(8, vp.Y - pHeight - 8))
-		vars.previewCustomPos = Vector2.new(clampedX, clampedY)
-		popup.Position = UDim2.fromOffset(clampedX, clampedY)
-		return
+	local visibleSlots = {}
+	for _, sl in ipairs(vars.PreviewSlots) do
+		if sl.Popup and sl.Popup.Visible then table.insert(visibleSlots, sl) end
 	end
 
-	local targetX = math.min(mPos.X + mSize.X + vars.previewGap, math.max(8, vp.X - pWidth - 8))
-	local targetY = math.clamp(mPos.Y, 8, math.max(8, vp.Y - pHeight - 8))
-	popup.Position = UDim2.fromOffset(targetX, targetY)
+	for orderIdx, sl in ipairs(visibleSlots) do
+		if not sl.DraggingOrResizing then
+			local pWidth = sl.CustomSize and sl.CustomSize.X or defaultW
+			local pHeight = sl.CustomSize and sl.CustomSize.Y or defaultH
+			sl.Popup.Size = UDim2.fromOffset(pWidth, pHeight)
+			if sl.UserMoved and sl.CustomPos then
+				local cx = math.clamp(sl.CustomPos.X, 8, math.max(8, vp.X - pWidth - 8))
+				local cy = math.clamp(sl.CustomPos.Y, 8, math.max(8, vp.Y - pHeight - 8))
+				sl.CustomPos = Vector2.new(cx, cy)
+				sl.Popup.Position = UDim2.fromOffset(cx, cy)
+			else
+				local targetX, targetY
+				if orderIdx == 1 then
+					targetX = mPos.X + mSize.X + gap
+					targetY = mPos.Y
+				elseif orderIdx == 2 then
+					local right2 = mPos.X + mSize.X + gap + pWidth + gap
+					if right2 + pWidth <= vp.X - 8 then
+						targetX = right2
+						targetY = mPos.Y
+					else
+						targetX = mPos.X - pWidth - gap
+						targetY = mPos.Y
+					end
+				else
+					local right3 = mPos.X + mSize.X + gap + (pWidth + gap) * 2
+					if right3 + pWidth <= vp.X - 8 then
+						targetX = right3
+						targetY = mPos.Y
+					elseif mPos.X - pWidth - gap >= 8 then
+						targetX = mPos.X - pWidth - gap
+						targetY = mPos.Y + 40
+					else
+						targetX = (vp.X - pWidth) * 0.5
+						targetY = mPos.Y + 50
+					end
+				end
+				targetX = math.clamp(targetX, 8, math.max(8, vp.X - pWidth - 8))
+				targetY = math.clamp(targetY, 8, math.max(8, vp.Y - pHeight - 8))
+				sl.Popup.Position = UDim2.fromOffset(targetX, targetY)
+			end
+		end
+	end
+end
+
+vars.ensurePreviewLoopRunning = function()
+	if vars.ui.hoverConnection then return end
+	vars.ui.hoverConnection = vars.RunService.RenderStepped:Connect(function(dt)
+		if not vars.scriptAlive or not vars.anyPreviewVisible() then
+			if vars.ui.hoverConnection then
+				vars.disconnectConnection(vars.ui.hoverConnection)
+				vars.ui.hoverConnection = nil
+			end
+			return
+		end
+		vars.updateHoverPreviewPosition()
+		local now = os.clock()
+		for _, sl in ipairs(vars.PreviewSlots) do
+			if sl.Popup and sl.Popup.Visible and sl.Model and sl.Model.Parent then
+				if not sl.IsRotating then
+					local idleTime = (sl.LastInteract and sl.LastInteract > 0) and (now - sl.LastInteract) or 999
+					if idleTime >= 3.0 then
+						sl.Pitch = (sl.Pitch or 0) * math.max(0, 1 - (dt * 5))
+						if math.abs(sl.Pitch) < 0.002 then sl.Pitch = 0 end
+						sl.Yaw = (sl.Yaw or 0) + (dt * math.rad(75))
+					end
+				end
+				pcall(function()
+					sl.Model:PivotTo(CFrame.Angles(sl.Pitch or 0, sl.Yaw or 0, 0))
+				end)
+			end
+		end
+	end)
 end
 
 vars.showHoverPreview = function(data, isPinned)
 	if not vars.scriptAlive or not data then return end
 
-	vars.stopHoverPreview()
-	if isPinned then vars.ui.pinnedPreviewData = data end
-	local token = vars.hoverPreviewToken
+	local existingSlot = vars.findPreviewSlotByData(data)
+	if existingSlot then
+		if isPinned then
+			existingSlot.IsPinned = true
+			vars.ui.pinnedPreviewData = data
+			if vars.updateRowVisuals then pcall(vars.updateRowVisuals, vars.ui.selectedAvatar) end
+		end
+		return
+	end
 
-	local popup = vars.HoverPreview
-	vars.updateHoverPreviewPosition()
+	local targetSlot = nil
+	if isPinned then
+		for _, sl in ipairs(vars.PreviewSlots) do
+			if not (sl.Popup and sl.Popup.Visible and sl.IsPinned) then
+				targetSlot = sl
+				break
+			end
+		end
+		if not targetSlot then
+			if NotifyFeatureToggle then NotifyFeatureToggle("Max 3 Avatar Previews Active", false) end
+			vars.Status.Text = "[!] Max 3 avatar previews open. Close one to open another."
+			return
+		end
+	else
+		if vars.countPinnedPreviews() > 0 then return end
+		targetSlot = vars.PreviewSlots[1]
+	end
+
+	vars.closePreviewSlot(targetSlot)
+	targetSlot.Token = (targetSlot.Token or 0) + 1
+	local myToken = targetSlot.Token
+	targetSlot.Data = data
+	targetSlot.IsPinned = (isPinned == true)
+	targetSlot.Yaw = 0
+	targetSlot.Pitch = 0
+	targetSlot.IsRotating = false
+	targetSlot.LastInteract = 0
+	if isPinned then vars.ui.pinnedPreviewData = data end
+
+	local popup = targetSlot.Popup
 	local topBar = popup:FindFirstChild("PreviewTopBar")
 	local title = topBar and topBar:FindFirstChild("OutfitName")
 	local bottomName = popup:FindFirstChild("BottomOutfitName")
@@ -13795,14 +14428,20 @@ vars.showHoverPreview = function(data, isPinned)
 	if not title or not bottomName or not info or not holder or not status then return end
 
 	local outfitName = tostring(data.DisplayName or data.Name or "Unnamed Outfit")
-	title.Text = "3D AVATAR PREVIEW"
+	title.Text = "3D PREVIEW #" .. tostring(targetSlot.Index)
 	bottomName.Text = outfitName
 	info.Text = string.upper(tostring(data.RigType or "Unknown"))
 		.. "  |  " .. tostring(vars.getAccessoryCount(data)) .. " accessories"
 
+	local pSc = popup:FindFirstChildOfClass("UIScale")
+	if not pSc then pSc = Instance.new("UIScale", popup) end
+	pSc.Scale = 0.84
 	popup.Visible = true
+	vars.updateHoverPreviewPosition()
+	FUI.SafeTween(pSc, FUI.TI.ModalPop, { Scale = 1.0 })
 	status.Text = "Loading 3D preview..."
 	status.Visible = true
+	if vars.updateRowVisuals then pcall(vars.updateRowVisuals, vars.ui.selectedAvatar) end
 
 	local viewport, worldModel, camera = vars.createPreviewViewport(holder)
 	if not viewport then
@@ -13810,43 +14449,44 @@ vars.showHoverPreview = function(data, isPinned)
 		status.Visible = true
 		return
 	end
+	targetSlot.Viewport = viewport
+	viewport.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			targetSlot.IsRotating = true
+			targetSlot.LastRotatePos = inp.Position
+			targetSlot.LastInteract = os.clock()
+			inp.Changed:Connect(function()
+				if inp.UserInputState == Enum.UserInputState.End then
+					targetSlot.IsRotating = false
+					targetSlot.LastInteract = os.clock()
+				end
+			end)
+		end
+	end)
 
 	task.spawn(function()
 		local ok, err = xpcall(function()
-			if not vars.scriptAlive or token ~= vars.hoverPreviewToken or not popup.Visible then return end
-
+			if not vars.scriptAlive or myToken ~= targetSlot.Token or not popup.Visible then return end
 			local cacheKey = vars.getPreviewCacheKey(data)
 			local template = cacheKey and vars.previewModelCache[cacheKey]
-
 			if template and template.Parent ~= nil then
 				vars.previewModelCache[cacheKey] = nil
 				template = nil
 			elseif template then
 				vars.touchPreviewCache(cacheKey)
 			end
-
 			if not template then
 				template = vars.buildPreviewTemplate(data, cacheKey)
 			end
-
-			if not template then
-				error("buildPreviewTemplate returned no model")
-			end
-
-			if not vars.scriptAlive or token ~= vars.hoverPreviewToken or not popup.Visible then return end
-
-			local cloneOk, model = pcall(function()
-				return template:Clone()
-			end)
-			if not cloneOk or not model then
-				error("failed to clone the preview model: " .. tostring(model))
-			end
-
+			if not template then error("buildPreviewTemplate returned no model") end
+			if not vars.scriptAlive or myToken ~= targetSlot.Token or not popup.Visible then return end
+			local cloneOk, model = pcall(function() return template:Clone() end)
+			if not cloneOk or not model then error("failed to clone the preview model: " .. tostring(model)) end
 			model.Parent = worldModel
 			model:PivotTo(CFrame.new(0, 0, 0))
+			targetSlot.Model = model
 			vars.ui.hoverModel = model
 			vars.ui.hoverViewport = viewport
-
 			local cameraOk, cameraErr = pcall(function()
 				vars.positionPreviewCamera(camera, model)
 				camera.FieldOfView = 35
@@ -13855,38 +14495,21 @@ vars.showHoverPreview = function(data, isPinned)
 				pcall(function() model:Destroy() end)
 				error("camera setup failed: " .. tostring(cameraErr))
 			end
-
-			if not vars.scriptAlive or token ~= vars.hoverPreviewToken or not popup.Visible then
+			if not vars.scriptAlive or myToken ~= targetSlot.Token or not popup.Visible then
 				pcall(function() model:Destroy() end)
 				return
 			end
-
 			status.Text = ""
 			status.Visible = false
-
-			local angle = 0
-			vars.ui.hoverConnection = vars.RunService.RenderStepped:Connect(function(dt)
-				if not vars.scriptAlive or token ~= vars.hoverPreviewToken or not popup.Visible or not model.Parent then
-					vars.stopHoverPreview()
-					return
-				end
-
-				vars.updateHoverPreviewPosition()
-				angle = angle + dt * math.rad(75)
-				pcall(function()
-					model:PivotTo(CFrame.Angles(0, angle, 0))
-				end)
-			end)
+			vars.ensurePreviewLoopRunning()
 		end, debug.traceback)
-
-		if not ok and vars.scriptAlive and token == vars.hoverPreviewToken and popup.Visible then
+		if not ok and vars.scriptAlive and myToken == targetSlot.Token and popup.Visible then
 			pcall(function()
-				if vars.ui.hoverModel then
-					vars.ui.hoverModel:Destroy()
-					vars.ui.hoverModel = nil
+				if targetSlot.Model then
+					targetSlot.Model:Destroy()
+					targetSlot.Model = nil
 				end
 			end)
-			vars.ui.hoverViewport = nil
 			status.Text = "Preview error:\n" .. tostring(err)
 			status.Visible = true
 		end
@@ -13973,9 +14596,16 @@ vars.StyleAvatarRow = function(data, row)
 		if ic then ic.TextColor3 = t.TextSecondary end
 	end
 
+	local wpHolder = row:FindFirstChild("WheelPinHolder")
+	if wpHolder then
+		wpHolder.BackgroundColor3 = t.PanelBg
+		local wpSt = wpHolder:FindFirstChildOfClass("UIStroke")
+		if wpSt then wpSt.Color = t.Stroke end
+	end
+
 	local hovBtn = row:FindFirstChild("Hover3D")
 	if hovBtn then
-		local isPinned = (vars.ui.pinnedPreviewData == data and vars.HoverPreview and vars.HoverPreview.Visible)
+		local isPinned = (vars.isAvatarPreviewPinned and vars.isAvatarPreviewPinned(data))
 		hovBtn.BackgroundColor3 = isPinned and t.Accent or t.PanelBg
 		local st = hovBtn:FindFirstChildOfClass("UIStroke")
 		if st then st.Color = isPinned and t.Accent or t.Stroke end
@@ -14079,7 +14709,7 @@ vars.createAvatarCard = function(data, index)
 
 	local AvatarName = Instance.new("TextButton")
 	AvatarName.Name = "AvatarName"
-	AvatarName.Size = UDim2.new(1, -198, 1, -10)
+	AvatarName.Size = UDim2.new(1, -234, 1, -10)
 	AvatarName.Position = UDim2.new(0, 80, 0, 5)
 	AvatarName.BackgroundColor3 = t.PanelBg
 	AvatarName.BorderSizePixel = 0
@@ -14107,6 +14737,21 @@ vars.createAvatarCard = function(data, index)
 	selectionMarker.Active = false
 	selectionMarker.Parent = AvatarName
 	vars.addCorner(selectionMarker, 4)
+
+	local avWheelKey = "AVATAR:" .. tostring(data.FileName or data.Name or data.DisplayName or data.UserId or index)
+	local WheelPinHolder = Instance.new("Frame")
+	WheelPinHolder.Name = "WheelPinHolder"
+	WheelPinHolder.Size = UDim2.fromOffset(30, 30)
+	WheelPinHolder.Position = UDim2.new(1, -148, 0.5, -15)
+	WheelPinHolder.BackgroundColor3 = t.PanelBg
+	WheelPinHolder.BorderSizePixel = 0
+	WheelPinHolder.Parent = Row
+	vars.addCorner(WheelPinHolder, 6)
+	vars.addStroke(WheelPinHolder, t.Stroke, 1, 0.45)
+	if FUI.CreateRadialCircleButton then
+		local avCirc = FUI.CreateRadialCircleButton(WheelPinHolder, avWheelKey, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 1, 0), tostring(data.DisplayName or data.Name or "Avatar"))
+		avCirc.TextSize = 17
+	end
 
 	local Rename = Instance.new("TextButton")
 	Rename.Name = "Rename"
@@ -14192,18 +14837,19 @@ vars.createAvatarCard = function(data, index)
 	end)
 
 	vars.wire(Hover3D.MouseEnter, function()
-		if vars.ui.pinnedPreviewData then return end
+		if vars.countPinnedPreviews() > 0 then return end
 		vars.ui.hoverButton = Hover3D
 		vars.showHoverPreview(data, false)
 	end)
 	vars.wire(Hover3D.MouseLeave, function()
-		if vars.ui.pinnedPreviewData then return end
+		if vars.countPinnedPreviews() > 0 then return end
 		if vars.ui.hoverButton == Hover3D then vars.ui.hoverButton = nil end
 		vars.stopHoverPreview()
 	end)
 	vars.wire(Hover3D.Activated, function()
-		if vars.ui.pinnedPreviewData == data and vars.HoverPreview and vars.HoverPreview.Visible then
-			vars.stopHoverPreview()
+		local existingSl = vars.findPreviewSlotByData(data)
+		if existingSl and existingSl.IsPinned then
+			vars.closePreviewSlot(existingSl)
 		else
 			vars.showHoverPreview(data, true)
 		end
@@ -14212,6 +14858,9 @@ vars.createAvatarCard = function(data, index)
 
 	vars.wire(DeleteButton.Activated, function()
 		vars.showConfirmation('Delete "' .. tostring(data.DisplayName or data.Name or "this avatar") .. '" from your saved avatars?', function()
+			if FUI.RemoveItemFromRadialWheel then FUI.RemoveItemFromRadialWheel(avWheelKey) end
+			local openSl = vars.findPreviewSlotByData and vars.findPreviewSlotByData(data)
+			if openSl then vars.closePreviewSlot(openSl) end
 			vars.deleteAvatar(data)
 		end)
 	end)
@@ -15423,6 +16072,45 @@ vars.wire(vars.WearButton.Activated, function()
 	end
 end)
 
+FUI.AvatarWheelBridge = {
+	GetAvatarEntry = function(avKey)
+		for idx, d in ipairs(vars.ui.savedAvatars or {}) do
+			local k = "AVATAR:" .. tostring(d.FileName or d.Name or d.DisplayName or d.UserId or idx)
+			if k == avKey then return d end
+		end
+		return nil
+	end,
+	IsAvatarWorn = function(avKey)
+		local d = FUI.AvatarWheelBridge.GetAvatarEntry(avKey)
+		if not d then return false end
+		return (vars.localTryOnModel ~= nil or vars.tryOnActive == true or vars.placeholderR6Active == true) and (vars.ui.selectedAvatar == d)
+	end,
+	ToggleAvatar = function(avKey)
+		if vars.localTryOnBuilding then return end
+		local d = FUI.AvatarWheelBridge.GetAvatarEntry(avKey)
+		if not d then return end
+		local avLabel = tostring(d.DisplayName or d.Name or "Avatar")
+		if (vars.localTryOnModel or vars.tryOnActive or vars.placeholderR6Active) and vars.ui.selectedAvatar == d then
+			vars.tryOnActive = false
+			vars.stopLocalTryOn(false)
+			vars.ui.selectedAvatar = nil
+			vars.updateRowVisuals(nil)
+			vars.Status.Text = "Local try-on cleared. Original avatar restored."
+			vars.clearDiagnostics()
+			if NotifyFeatureToggle then NotifyFeatureToggle("Avatar: " .. avLabel, false) end
+		else
+			if vars.localTryOnModel or vars.tryOnActive or vars.placeholderR6Active then
+				vars.tryOnActive = false
+				vars.stopLocalTryOn(false)
+			end
+			vars.ui.selectedAvatar = d
+			vars.updateRowVisuals(d)
+			vars.tryOnSelectedAvatarLocally()
+			if NotifyFeatureToggle then NotifyFeatureToggle("Avatar: " .. avLabel, true) end
+		end
+	end
+}
+
 vars.updatePlaceholderToggleVisual = function()
 	if not vars.PlaceholderToggle or not vars.PlaceholderToggle.Parent then return end
 	local t = GetTheme()
@@ -15649,7 +16337,8 @@ vars.RefreshAvatarChangerTheme = function()
 		vars.StatusDot.BackgroundColor3 = t.Accent
 	end
 
-	local popup = vars.HoverPreview
+	for _, _psl in ipairs(vars.PreviewSlots or {}) do
+	local popup = _psl.Popup
 	if popup and popup.Parent then
 		popup.BackgroundColor3 = t.MainBg
 		local pCorner = popup:FindFirstChildOfClass("UICorner")
@@ -15678,6 +16367,10 @@ vars.RefreshAvatarChangerTheme = function()
 		if info then info.TextColor3 = t.TextSecondary end
 		if botName then botName.TextColor3 = t.TextPrimary end
 		if status then status.TextColor3 = t.TextSecondary end
+		local dHint = holder and holder:FindFirstChild("DragRotateHint")
+		if dHint then dHint.TextColor3 = t.TextSecondary end
+		local rGrip = popup:FindFirstChild("ResizeGrip")
+		if rGrip then rGrip.TextColor3 = t.Accent end
 
 		if d == "LiquidGlass" then
 			popup.BackgroundTransparency = 0.48
@@ -15742,6 +16435,7 @@ vars.RefreshAvatarChangerTheme = function()
 			if pGrad then pGrad.Enabled = false end
 			if sGrad then sGrad.Enabled = false end
 		end
+	end
 	end
 
 	for data, row in pairs(vars.ui.avatarRows) do
@@ -16801,7 +17495,7 @@ table.insert(Connections, RunService.Heartbeat:Connect(function(deltaTime)
 			noFogApplying = false
 		end
 	end
-	if camera and camera.FieldOfView ~= Config.FOV then camera.FieldOfView = Config.FOV end
+	if FUI.StepBinocularsZoom then FUI.StepBinocularsZoom(deltaTime, camera) elseif camera and camera.FieldOfView ~= Config.FOV then camera.FieldOfView = Config.FOV end
 	if not root or not hum then return end
 
 	if Config.AntiCheatBypass ~= false and teleportBypassTargetCF and os.clock() < teleportBypassLockUntil and not FlingActive then
@@ -16878,6 +17572,8 @@ table.insert(Connections, UserInputService.InputBegan:Connect(function(input, gp
 		if fcKey ~= "None" and keyName == fcKey and toggleFreecamState then toggleFreecamState() return end
 		local rwKey = Config.RadialWheelKeybind or "V"
 		if Config.RadialWheelEnabled ~= false and rwKey ~= "None" and keyName == rwKey and FUI.OpenRadialWheel then FUI.OpenRadialWheel() return end
+		local zmKey = Config.ZoomKeybind or "B"
+		if Config.ZoomBinocularsEnabled ~= false and zmKey ~= "None" and keyName == zmKey and FUI.SetBinocularsZoom then FUI.SetBinocularsZoom(true) return end
 		for _, wp in ipairs(savedConfig.Waypoints) do
 			local wpPid = tonumber(wp.PlaceId) or 0
 			if (wpPid == 0 or wpPid == game.PlaceId) and wp.Keybind and wp.Keybind ~= "None" and wp.Keybind == keyName then
@@ -16892,6 +17588,10 @@ table.insert(Connections, UserInputService.InputEnded:Connect(function(input)
 		local rwKey = Config.RadialWheelKeybind or "V"
 		if rwKey ~= "None" and input.KeyCode.Name == rwKey and FUI.CloseRadialWheel then
 			FUI.CloseRadialWheel(true)
+		end
+		local zmKey = Config.ZoomKeybind or "B"
+		if zmKey ~= "None" and input.KeyCode.Name == zmKey and FUI.SetBinocularsZoom then
+			FUI.SetBinocularsZoom(false)
 		end
 	end
 end))
@@ -16955,13 +17655,16 @@ local function ResetCharacterPhysicsCleanly()
 end
 local function ShutdownInstance(immediate) if isClosingPermanently then return end
 	isClosingPermanently = true
+	if FUI.SaveExecutorBufferNow then pcall(FUI.SaveExecutorBufferNow) end
 	if _savePending then FlushConfigNow(false) end
 	if FUI._FpsAddedConn then pcall(function() FUI._FpsAddedConn:Disconnect() end) FUI._FpsAddedConn = nil end
 	if FUI.RestoreFpsBooster and Config.FpsBoosterEnabled then pcall(FUI.RestoreFpsBooster) end
 	if FUI.ClearWaypointBeacons then pcall(FUI.ClearWaypointBeacons) end
 	if FUI.ClearAllNotifications then pcall(FUI.ClearAllNotifications) end
 	if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+	if FUI.SetBinocularsZoom then pcall(FUI.SetBinocularsZoom, false) end
 	if FUI._RadialMoveConn then pcall(function() FUI._RadialMoveConn:Disconnect() end) FUI._RadialMoveConn = nil end
+	if FUI._RadialSpinConn then pcall(function() FUI._RadialSpinConn:Disconnect() end) FUI._RadialSpinConn = nil end
 	FUI.IsWindowUnfocused = false
 	pcall(function() RunService:Set3dRenderingEnabled(true) end)
 	if FUI.TelemetryHudFrame then pcall(function() FUI.TelemetryHudFrame.Visible = false end) end
@@ -17094,6 +17797,7 @@ FUI.SoftResetAll = function()
 		RestoreFog()
 	end)
 	if FUI.CloseRadialWheel then pcall(FUI.CloseRadialWheel, false) end
+	if FUI.SetBinocularsZoom then pcall(FUI.SetBinocularsZoom, false) end
 	if FUI.SetWindowPowerSaverState then pcall(FUI.SetWindowPowerSaverState, false) end
 	pcall(function() RunService:Set3dRenderingEnabled(true) end)
 	ResetCharacterPhysicsCleanly()
